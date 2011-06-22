@@ -1,0 +1,53 @@
+<div>Block title: <input type="text" name="title" size="30" value="<?php echo isset($this->config->title) ? $this->config->title : ''; ?>" /></div>
+<?php
+echo '<div>';
+print_string('select_reports','block_elis_reports');
+echo '</div>';
+$categories = array();
+if($handle = opendir($CFG->dirroot . '/blocks/php_report/instances')) {
+    while (false !== ($report_shortname = readdir($handle))) {
+        $report_filename = $report_shortname . '_report.class.php';
+        $report_path = $CFG->dirroot . '/blocks/php_report/instances/' . $report_shortname . '/' . $report_filename;
+
+        $instanceid = required_param('instanceid', PARAM_INT);
+
+        if(file_exists($report_path)) {
+            require_once($report_path);
+            $report_classname = $report_shortname . '_report';
+            $report_instance = new $report_classname($instanceid);
+
+            //make sure the report is available and accessible to this user in a web-based context
+            if ($report_instance->is_available() && $report_instance->can_view_report()) {
+                $category = $report_instance->get_category();
+                if (!isset($categories[$category])) {
+                    $categories[$category] = array();
+                }
+                $categories[$category][] = '<div><input type="checkbox" value="'.$report_shortname.'" name="report_'.$report_shortname.'" id="'.$report_shortname.'_check" '.(isset($this->config->reports[$report_shortname]) ? 'checked ' : '' ).'/> <label for="'.$report_shortname.'_check">'.$report_instance->get_display_name().'</label></div>';
+            }
+        }
+    }
+}
+
+foreach ($categories as $category => $reports) {
+    echo '<h3>'.get_string($category, 'block_php_report').'</h3>';
+    foreach ($reports as $report) {
+        echo $report;
+    }
+}
+
+echo '<div>';
+print_string('required_role', 'block_elis_reports');
+echo '</div>';
+?>
+<div>
+<select name="role">
+<option value=""<?php echo empty($this->config->role) ? ' selected' : ''; ?>><?php echo get_string('no_capability','block_elis_reports'); ?></option>
+<?php
+$roles = get_records('role');
+
+foreach ($roles as $r) {
+    echo '<option value="'.$r->id.'"'.(isset($this->config->role) && $r->id == $this->config->role ? ' selected' : '').'>'.$r->name.'</option>';
+}
+?>
+</select></div>
+<div style="text-align: center""><input type="submit" value="<?php echo get_string('savechanges'); ?>" /></div>

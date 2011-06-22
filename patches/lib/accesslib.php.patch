@@ -1,0 +1,1889 @@
+diff --git a/lib/accesslib.php b/lib/accesslib.php
+old mode 100755
+new mode 100644
+index 7d00069..aae4e33
+--- a/lib/accesslib.php
++++ b/lib/accesslib.php
+@@ -171,6 +171,944 @@ $ACCESS = array(); // cache of caps for cron user switching and has_capability f
+ $RDEFS = array(); // role definitions cache - helps a lot with mem usage in cron
+ 
+ /**
++ * Abstract class for context levels.  The context level classes encapsulate
++ * context level-specific logic.
++ */
++abstract class context_level_base {
++    /**
++     * The numeric value for the context level.  Used by cleanup_contexts_sql.
++     */
++    protected $level;
++
++    /**
++     * Primary table used for the data records represented by this context
++     * level, or null if there is no table.  Used by cleanup_contexts_sql.
++     */
++    protected $table = null;
++
++    private static $allcontextlevels;
++
++    /**
++     * Returns an array of all the context levels defined in the system.
++     *
++     * @return array
++     */
++    static function get_all_context_levels() {
++        global $CFG;
++        if (!isset(context_level_base::$allcontextlevels)) {
++            context_level_base::$allcontextlevels =
++                array(
++                    CONTEXT_SYSTEM      => new context_level_system(),
++                    CONTEXT_USER        => new context_level_user(),
++                    CONTEXT_COURSECAT   => new context_level_coursecat(),
++                    CONTEXT_COURSE      => new context_level_course(),
++                    CONTEXT_MODULE      => new context_level_module(),
++                    CONTEXT_BLOCK       => new context_level_block(),
++                    );
++
++            // find all the components that have defined context levels
++            context_level_base::load_custom_context_levels();
++            $components = array();
++            require_once ($CFG->libdir . '/moodlelib2.0.php');
++            foreach (array_keys(context_level_base::$customctxlevels) as $component) {
++                require (get_component_directory($component).'/db/access.php');
++                foreach (${$component.'_contextlevels'} as $name=>$object) {
++                    $contextlevel = context_level_base::get_custom_context_level($name, $component);
++                    context_level_base::$allcontextlevels[$contextlevel] = $object;
++                    $object->level = $contextlevel;
++                }
++            }
++        }
++
++        return context_level_base::$allcontextlevels;
++    }
++
++    /**
++     * Returns the context level object for the specified context level.
++     *
++     * @param int $level
++     * @return mixed
++     */
++    static function get_context_level($level) {
++        // make sure $all_context_levels is loaded
++        context_level_base::get_all_context_levels();
++
++        if (is_object($level)) {
++            // if $level is a context object
++            $level = $level->contextlevel;
++        }
++
++        return context_level_base::$allcontextlevels[$level];
++    }
++
++    /**
++     * Determines whether the specified context level is a valid level.
++     *
++     * @param int $level
++     * @return bool
++     */
++    static function context_level_exists($level) {
++        // make sure $all_context_levels is loaded
++        context_level_base::get_all_context_levels();
++
++        if (is_object($level)) {
++            // if $level is a context object
++            $level = $level->contextlevel;
++        }
++
++        return isset(context_level_base::$allcontextlevels[$level]);
++    }
++
++    private static $customctxlevels = null;
++
++    private static function load_custom_context_levels() {
++        if (context_level_base::$customctxlevels === null) {
++            context_level_base::$customctxlevels = array();
++            $ctxlevel = get_records('context_levels');
++            if (!$ctxlevel) {
++                return;
++            }
++            foreach($ctxlevel as $rec) {
++                context_level_base::$customctxlevels[$rec->component][$rec->name] = $rec->id + 1000;
++            }
++        }
++    }
++
++    static function get_custom_context_level($name, $component) {
++        context_level_base::load_custom_context_levels();
++
++        if (!isset(context_level_base::$customctxlevels[$component])
++            || !isset(context_level_base::$customctxlevels[$component][$name])) {
++            return null;
++        }
++        return context_level_base::$customctxlevels[$component][$name];
++    }
++
++    static function clear_custom_context_level_cache() {
++        context_level_base::$customctxlevels = null;
++    }
++
++    /**
++     * Retrieves information for an instance necessary for creating a new
++     * context instance.  (Used by create_context.)
++     *
++     * @param int $instanceid
++     *
++     * @return array (boolean instance OK, string base path, int base depth)
++     */
++    abstract public function get_context_info($instanceid);
++
++    /**
++     * prints human readable context identifier
++     */
++    abstract public function print_context_name($context, $withprefix = true, $short = false);
++
++    /**
++     * Extracts the relevant capabilities given a contextid.
++     * All case based, example an instance of forum context.
++     * Will fetch all forum related capabilities, while course contexts
++     * Will fetch all capabilities
++     * @param object context
++     * @return array();
++     *
++     *  capabilities
++     * `name` varchar(150) NOT NULL,
++     * `captype` varchar(50) NOT NULL,
++     * `contextlevel` int(10) NOT NULL,
++     * `component` varchar(100) NOT NULL,
++     */
++    public function fetch_context_capabilities($context) {
++        $sort = 'ORDER BY contextlevel, component, name';    // To group them sensibly for display
++
++        $SQL = $this->fetch_context_capabilities_sql($context);
++
++        $records = get_records_sql($SQL.' '.$sort);
++
++        if (empty($records)) {
++            $records = array();
++        }
++
++        return $records;
++    }
++
++    /**
++     * sql for the removal of stale contexts
++     *
++     * @return string
++     */
++    public function cleanup_contexts_sql() {
++        global $CFG;
++
++        if (empty($this->table)) {
++            return null;
++        }
++
++        $sql = " SELECT c.contextlevel,
++                        c.instanceid
++                   FROM {$CFG->prefix}context c
++                   LEFT OUTER JOIN {$CFG->prefix}{$this->table} t
++                        ON c.instanceid = t.id
++                   WHERE t.id IS NULL AND c.contextlevel = {$this->level}";
++
++        return $sql;
++    }
++
++    /**
++     * returns sql string needed for fetch context capabilities
++     *
++     * @param object $context
++     * @return string;
++     */
++    abstract protected function fetch_context_capabilities_sql($context);
++
++    /**
++     * Recursive function which, given a context, finds all its children context ids.
++     *
++     * When called for a course context, it will return the modules and blocks
++     * displayed in the course page.
++     *
++     * For course category contexts it will return categories and courses. It will
++     * NOT recurse into courses - if you want to do that, call it on the returned
++     * courses.
++     *
++     * If called on a course context it _will_ populate the cache with the appropriate
++     * contexts ;-)
++     *
++     * @param object $context.
++     * @return array of child records
++     */
++    abstract public function get_child_contexts($context);
++
++    /**
++     * This gets the mod/block/course/core etc strings.
++     *
++     * @param $component
++     * @param $contextlevel
++     */
++    abstract public function get_component_string($component, $contextlevel);
++
++    /**
++     * Populate context.path and context.depth where missing.
++     *
++     * @param string $base base path for top-level context
++     * @param string $emptyclause clause to filter out the records that should
++     * not be updated.  $a in the string should be replaced by the table name
++     * or alias for the context table.
++     */
++    abstract public function build_context_path($base, $emptyclause, $feedback=false);
++
++    /**
++     * Flush the contents of the context_temp table to the context table, and
++     * reset context_temp to empty.
++     */
++    static protected function flush_context_temp($feedback) {
++        global $CFG;
++
++        static $updatesql;
++
++        if (!isset($updatesql)) {
++            /* MDL-11347:
++             *  - mysql does not allow to use FROM in UPDATE statements
++             *  - using two tables after UPDATE works in mysql, but might give unexpected
++             *    results in pg 8 (depends on configuration)
++             *  - using table alias in UPDATE does not work in pg < 8.2
++             */
++            if ($CFG->dbfamily == 'mysql') {
++                $updatesql = "UPDATE {$CFG->prefix}context ct, {$CFG->prefix}context_temp temp
++                         SET ct.path  = temp.path,
++                             ct.depth = temp.depth
++                       WHERE ct.id = temp.id";
++            } else if ($CFG->dbfamily == 'oracle') {
++                $updatesql = "UPDATE {$CFG->prefix}context ct
++                         SET (ct.path, ct.depth) =
++                             (SELECT temp.path, temp.depth
++                                FROM {$CFG->prefix}context_temp temp
++                               WHERE temp.id=ct.id)
++                       WHERE EXISTS (SELECT 'x'
++                                       FROM {$CFG->prefix}context_temp temp
++                                       WHERE temp.id = ct.id)";
++            } else {
++                $updatesql = "UPDATE {$CFG->prefix}context
++                         SET path  = temp.path,
++                             depth = temp.depth
++                        FROM {$CFG->prefix}context_temp temp
++                       WHERE temp.id={$CFG->prefix}context.id";
++            }
++        }
++
++        execute_sql($updatesql, $feedback);
++        execute_sql("TRUNCATE TABLE {$CFG->prefix}context_temp", $feedback);
++    }
++}
++
++/**
++ * Class representing the system context level.
++ */
++class context_level_system extends context_level_base {
++    public function get_context_info($instanceid) {
++        return array(false, '', 1); // this should never be called
++    }
++
++    public function print_context_name($context, $withprefix = true, $short = false) {
++        return get_string('coresystem');
++    }
++
++    public function fetch_context_capabilities_sql($context) {
++        global $CFG;
++
++        $SQL = "SELECT *
++                  FROM {$CFG->prefix}capabilities";
++
++        return $SQL;
++    }
++
++    public function get_child_contexts($context) {
++        // Just get all the contexts except for CONTEXT_SYSTEM level
++        // and hope we don't OOM in the process - don't cache
++        return get_records_select('context', 'contextlevel != '.CONTEXT_SYSTEM);
++    }
++
++    public function get_component_string($component, $contextlevel) {
++        if (preg_match('|^enrol/|', $component)) {
++            $langname = str_replace('/', '_', $component);
++            $string = get_string('enrolname', $langname);
++        } else if (preg_match('|^block/|', $component)) {
++            $langname = str_replace('/', '_', $component);
++            $string = get_string('blockname', $langname);
++        } else if (preg_match('|^local|', $component)) {
++            $langname = str_replace('/', '_', $component);
++            $string = get_string('local');
++        } else if (preg_match('|^report/|', $component)) {
++            $string = get_string('reports');
++        } else {
++            $string = get_string('coresystem');
++        }
++
++        return $string;
++    }
++
++    public function build_context_path($base, $emptyclause, $feedback=false) {
++        // Sitecourse
++        $sitecoursectx = get_record('context',
++                                    'contextlevel', CONTEXT_COURSE,
++                                    'instanceid', SITEID);
++        if (!$emptyclause || $sitecoursectx->path !== "$base/{$sitecoursectx->id}") {
++            set_field('context', 'path',  "$base/{$sitecoursectx->id}",
++                      'id', $sitecoursectx->id);
++            set_field('context', 'depth', 2,
++                      'id', $sitecoursectx->id);
++            $sitecoursectx = get_record('context',
++                                        'contextlevel', CONTEXT_COURSE,
++                                        'instanceid', SITEID);
++        }
++    }
++}
++
++/**
++ * Class representing the user context level.
++ */
++class context_level_user extends context_level_base {
++    protected $level = CONTEXT_USER;
++    protected $table = 'user';
++
++    public function get_context_info($instanceid) {
++        $basepath  = '/' . SYSCONTEXTID;
++        $basedepth = 1;
++        $result = true;
++
++        return array($result, $basepath, $basedepth);
++    }
++
++    public function print_context_name($context, $withprefix = true, $short = false) {
++        $name = '';
++        $user = get_record('user', 'id', $context->instanceid);
++
++        if (!empty($user)) {
++            if ($withprefix){
++                $name = get_string('user').': ';
++            }
++            $name .= fullname($user);
++        }
++
++        return $name;
++    }
++
++    public function fetch_context_capabilities_sql($context) {
++        global $CFG;
++
++        $extracaps = array('moodle/grade:viewall');
++
++        foreach ($extracaps as $key=>$value) {
++            $extracaps[$key]= "'$value'";
++        }
++
++        $extra = implode(',', $extracaps);
++        $SQL = "SELECT *
++                  FROM {$CFG->prefix}capabilities
++                 WHERE contextlevel = ".CONTEXT_USER."
++                       OR name IN ($extra)";
++
++        return $SQL;
++    }
++
++    public function get_child_contexts($context) {
++        //no children by default
++        return array();
++    }
++
++    public function get_component_string($component, $contextlevel) {
++        return get_string('users');
++    }
++
++    public function build_context_path($base, $emptyclause, $feedback=false) {
++        global $CFG;
++
++        $a = $CFG->prefix.'context';
++        eval('$emptyclause = "'.$emptyclause.'";');
++
++        // User
++        $sql = "UPDATE {$CFG->prefix}context
++                   SET depth=2, path=".sql_concat("'$base/'", 'id')."
++                 WHERE contextlevel=".CONTEXT_USER."
++                       AND EXISTS (SELECT 'x'
++                                     FROM {$CFG->prefix}user u
++                                    WHERE u.id = {$CFG->prefix}context.instanceid)
++                       $emptyclause ";
++        execute_sql($sql, $feedback);
++    }
++}
++
++/**
++ * Class representing the course category context level.
++ */
++class context_level_coursecat extends context_level_base {
++    protected $level = CONTEXT_COURSECAT;
++    protected $table = 'course_categories';
++
++    public function get_context_info($instanceid) {
++        global $CFG;
++        $result = true;
++        $sql = "SELECT ctx.path, ctx.depth 
++                  FROM {$CFG->prefix}context           ctx
++                  JOIN {$CFG->prefix}course_categories cc
++                    ON (cc.parent=ctx.instanceid AND ctx.contextlevel=".CONTEXT_COURSECAT.")
++                 WHERE cc.id={$instanceid}";
++        if ($p = get_record_sql($sql)) {
++            $basepath  = $p->path;
++            $basedepth = $p->depth;
++        } else if ($category = get_record('course_categories', 'id', $instanceid)) {
++            if (empty($category->parent)) {
++                // ok - this is a top category
++                $basepath  = '/' . SYSCONTEXTID;
++                $basedepth = 1;
++            } else if ($parent = get_context_instance(CONTEXT_COURSECAT, $category->parent)) {
++                $basepath  = $parent->path;
++                $basedepth = $parent->depth;
++            } else {
++                // wrong parent category - no big deal, this can be fixed later
++                $basepath  = null;
++                $basedepth = 0;
++            }
++        } else {
++            // incorrect category id
++            $result = false;
++        }
++
++        return array($result, $basepath, $basedepth);
++    }
++
++    public function print_context_name($context, $withprefix = true, $short = false) {
++        $name = '';
++
++        if ($category = get_record('course_categories', 'id', $context->instanceid)) {
++            if ($withprefix){
++                $name = get_string('category').': ';
++            }
++            $name .=format_string($category->name);
++        }
++
++        return $name;
++    }
++
++    public function fetch_context_capabilities_sql($context) {
++        global $CFG;
++
++        $SQL = "SELECT *
++                  FROM {$CFG->prefix}capabilities
++                 WHERE contextlevel IN (".CONTEXT_COURSECAT.",".CONTEXT_COURSE.",".CONTEXT_MODULE.",".CONTEXT_BLOCK.")";
++
++        return $SQL;
++    }
++
++    public function get_child_contexts($context) {
++        global $CFG, $context_cache;
++
++        // Find
++        // - categories
++        // - courses
++        $sql = " SELECT ctx.*
++                 FROM {$CFG->prefix}context ctx
++                 WHERE ctx.path LIKE '{$context->path}/%'
++                       AND ctx.contextlevel IN (".CONTEXT_COURSECAT.",".CONTEXT_COURSE.")
++        ";
++        $rs  = get_recordset_sql($sql);
++        $records = array();
++        while ($rec = rs_fetch_next_record($rs)) {
++            $records[$rec->id] = $rec;
++            $context_cache[$rec->contextlevel][$rec->instanceid] = $rec;
++        }
++        rs_close($rs);
++        return $records;
++    }
++
++    public function get_component_string($component, $contextlevel) {
++        return get_string('categories');
++    }
++
++    public function build_context_path($base, $emptyclause, $feedback=false) {
++        global $CFG;
++
++        $a = 'ctx';
++        eval('$ctxemptyclause = "'.$emptyclause.'";');
++        $a = $CFG->prefix.'context';
++        eval('$emptyclause = "'.$emptyclause.'";');
++
++        // Top level categories
++        $sql = "UPDATE {$CFG->prefix}context
++                   SET depth=2, path=" . sql_concat("'$base/'", 'id') . "
++                 WHERE contextlevel=".CONTEXT_COURSECAT."
++                       AND EXISTS (SELECT 'x'
++                                     FROM {$CFG->prefix}course_categories cc
++                                    WHERE cc.id = {$CFG->prefix}context.instanceid
++                                          AND cc.depth=1)
++                       $emptyclause";
++
++        execute_sql($sql, $feedback);
++
++        // Deeper categories - one query per depthlevel
++        $maxdepth = get_field_sql("SELECT MAX(depth)
++                                   FROM {$CFG->prefix}course_categories");
++        for ($n=2;$n<=$maxdepth;$n++) {
++            $sql = "INSERT INTO {$CFG->prefix}context_temp (id, path, depth)
++                    SELECT ctx.id, ".sql_concat('pctx.path', "'/'", 'ctx.id').", $n+1
++                      FROM {$CFG->prefix}context ctx
++                      JOIN {$CFG->prefix}course_categories c ON ctx.instanceid=c.id
++                      JOIN {$CFG->prefix}context pctx ON c.parent=pctx.instanceid
++                     WHERE ctx.contextlevel=".CONTEXT_COURSECAT."
++                           AND pctx.contextlevel=".CONTEXT_COURSECAT."
++                           AND c.depth=$n
++                           AND NOT EXISTS (SELECT 'x'
++                                           FROM {$CFG->prefix}context_temp temp
++                                           WHERE temp.id = ctx.id)
++                           $ctxemptyclause";
++            execute_sql($sql, $feedback);
++
++            // this is needed after every loop
++            // MDL-11532
++            context_level_base::flush_context_temp($feedback);
++        }
++
++    }
++}
++
++/**
++ * Class representing the course context level.
++ */
++class context_level_course extends context_level_base {
++    protected $level = CONTEXT_COURSE;
++    protected $table = 'course';
++
++    public function get_context_info($instanceid) {
++        global $CFG;
++        $result = true;
++        $sql = "SELECT ctx.path, ctx.depth
++                  FROM {$CFG->prefix}context           ctx
++                  JOIN {$CFG->prefix}course            c
++                    ON (c.category=ctx.instanceid AND ctx.contextlevel=".CONTEXT_COURSECAT.")
++                 WHERE c.id={$instanceid} AND c.id !=" . SITEID;
++        if ($p = get_record_sql($sql)) {
++            $basepath  = $p->path;
++            $basedepth = $p->depth;
++        } else if ($course = get_record('course', 'id', $instanceid)) {
++            if ($course->id == SITEID) {
++                //ok - no parent category
++                $basepath  = '/' . SYSCONTEXTID;
++                $basedepth = 1;
++            } else if ($parent = get_context_instance(CONTEXT_COURSECAT, $course->category)) {
++                $basepath  = $parent->path;
++                $basedepth = $parent->depth;
++            } else {
++                // wrong parent category of course - no big deal, this can be fixed later
++                $basepath  = null;
++                $basedepth = 0;
++            }
++        } else if ($instanceid == SITEID) {
++            // no errors for missing site course during installation
++            return false;
++        } else {
++            // incorrect course id
++            $result = false;
++        }
++
++        return array($result, $basepath, $basedepth);
++    }
++
++    public function print_context_name($context, $withprefix = true, $short = false) {
++        if ($context->instanceid == SITEID) {
++            $name = get_string('frontpage', 'admin');
++        } else {
++            if ($course = get_record('course', 'id', $context->instanceid)) {
++                $name = '';
++
++                if ($withprefix){
++                    $name .= get_string('course').': ';
++                }
++
++                if (!$short){
++                    $name .= format_string($course->shortname);
++                } else {
++                    $name .= format_string($course->fullname);
++                }
++            }
++        }
++
++        return $name;
++    }
++
++    public function fetch_context_capabilities_sql($context) {
++        global $CFG;
++
++        $SQL = "SELECT *
++                  FROM {$CFG->prefix}capabilities
++                 WHERE contextlevel IN (".CONTEXT_COURSE.",".CONTEXT_MODULE.",".CONTEXT_BLOCK.")";
++
++        return $SQL;
++    }
++
++    public function get_child_contexts($context) {
++        global $CFG, $context_cache;
++
++        // Find
++        // - module instances - easy
++        // - blocks assigned to the course-view page explicitly - easy
++        $sql = " SELECT ctx.*
++                   FROM {$CFG->prefix}context ctx
++                   WHERE ctx.path LIKE '{$context->path}/%'
++                         AND ctx.contextlevel IN (".CONTEXT_MODULE.",".CONTEXT_BLOCK.")
++            ";
++        $rs  = get_recordset_sql($sql);
++        $records = array();
++        while ($rec = rs_fetch_next_record($rs)) {
++            $records[$rec->id] = $rec;
++            $context_cache[$rec->contextlevel][$rec->instanceid] = $rec;
++        }
++        rs_close($rs);
++        return $records;
++    }
++
++    public function get_component_string($component, $contextlevel) {
++        if (preg_match('|^gradeimport/|', $component)
++            || preg_match('|^gradeexport/|', $component)
++            || preg_match('|^gradereport/|', $component)) {
++            $string =  get_string('gradebook', 'admin');
++        } else if (preg_match('|^coursereport/|', $component)) {
++            $string = get_string('coursereports');
++        } else {
++            $string = get_string('course');
++        }
++
++        return $string;
++    }
++
++    public function build_context_path($base, $emptyclause, $feedback=false) {
++        global $CFG;
++
++        $a = 'ctx';
++        eval('$ctxemptyclause = "'.$emptyclause.'";');
++
++        // Courses -- except sitecourse
++        $sql = "INSERT INTO {$CFG->prefix}context_temp (id, path, depth)
++                SELECT ctx.id, ".sql_concat('pctx.path', "'/'", 'ctx.id').", pctx.depth+1
++                  FROM {$CFG->prefix}context ctx
++                  JOIN {$CFG->prefix}course c ON ctx.instanceid=c.id
++                  JOIN {$CFG->prefix}context pctx ON c.category=pctx.instanceid
++                 WHERE ctx.contextlevel=".CONTEXT_COURSE."
++                       AND c.id!=".SITEID."
++                       AND pctx.contextlevel=".CONTEXT_COURSECAT."
++                           AND NOT EXISTS (SELECT 'x'
++                                           FROM {$CFG->prefix}context_temp temp
++                                           WHERE temp.id = ctx.id)
++                       $ctxemptyclause";
++        execute_sql($sql, $feedback);
++
++        context_level_base::flush_context_temp($feedback);
++    }
++}
++
++/**
++ * Class representing the module context level.
++ */
++class context_level_module extends context_level_base {
++    protected $level = CONTEXT_MODULE;
++    protected $table = 'course_modules';
++
++    public function get_context_info($instanceid) {
++        global $CFG;
++        $result = true;
++        $sql = "SELECT ctx.path, ctx.depth
++                  FROM {$CFG->prefix}context           ctx
++                  JOIN {$CFG->prefix}course_modules    cm
++                    ON (cm.course=ctx.instanceid AND ctx.contextlevel=".CONTEXT_COURSE.")
++                 WHERE cm.id={$instanceid}";
++        if ($p = get_record_sql($sql)) {
++            $basepath  = $p->path;
++            $basedepth = $p->depth;
++        } else if ($cm = get_record('course_modules', 'id', $instanceid)) {
++            if ($parent = get_context_instance(CONTEXT_COURSE, $cm->course)) {
++                $basepath  = $parent->path;
++                $basedepth = $parent->depth;
++            } else {
++                // course does not exist - modules can not exist without a course
++                $result = false;
++            }
++        } else {
++            // cm does not exist
++            $result = false;
++        }
++
++        return array($result, $basepath, $basedepth);
++    }
++
++    public function print_context_name($context, $withprefix = true, $short = false) {
++        $name = '';
++
++        if ($cm = get_record('course_modules','id',$context->instanceid)) {
++            if ($module = get_record('modules','id',$cm->module)) {
++                if ($mod = get_record($module->name, 'id', $cm->instance)) {
++                    if ($withprefix){
++                        $name = get_string('activitymodule').': ';
++                    }
++                    $name .= $mod->name;
++                }
++            }
++        }
++
++        return $name;
++    }
++
++    public function fetch_context_capabilities_sql($context) {
++        global $CFG;
++
++        $cm = get_record('course_modules', 'id', $context->instanceid);
++        $module = get_record('modules', 'id', $cm->module);
++
++        $modfile = "$CFG->dirroot/mod/$module->name/lib.php";
++        if (file_exists($modfile)) {
++            include_once($modfile);
++            $modfunction = $module->name.'_get_extra_capabilities';
++            if (function_exists($modfunction)) {
++                $extracaps = $modfunction();
++            }
++        }
++        if(empty($extracaps)) {
++            $extracaps = array();
++        }
++
++        // All modules allow viewhiddenactivities. This is so you can hide
++        // the module then override to allow specific roles to see it.
++        // The actual check is in course page so not module-specific
++        $extracaps[]="moodle/course:viewhiddenactivities";
++        if (count($extracaps) == 1) {
++            $extra = "OR name = '".reset($extracaps)."'";
++        } else {
++            foreach ($extracaps as $key=>$value) {
++                $extracaps[$key]= "'$value'";
++            }
++            $extra = implode(',', $extracaps);
++            $extra = "OR name IN ($extra)";
++        }
++
++        $SQL = "SELECT *
++                  FROM {$CFG->prefix}capabilities
++                 WHERE (contextlevel = ".CONTEXT_MODULE."
++                       AND component = 'mod/$module->name')
++                       $extra";
++
++        return $SQL;
++    }
++
++    public function get_child_contexts($context) {
++        //no children by default
++        return array();
++    }
++
++    public function get_component_string($component, $contextlevel) {
++        return get_string('modulename', basename($component));
++    }
++
++    public function build_context_path($base, $emptyclause, $feedback=false) {
++        global $CFG;
++
++        $a = 'ctx';
++        eval('$ctxemptyclause = "'.$emptyclause.'";');
++
++        // Module instances
++        $sql = "INSERT INTO {$CFG->prefix}context_temp (id, path, depth)
++                SELECT ctx.id, ".sql_concat('pctx.path', "'/'", 'ctx.id').", pctx.depth+1
++                  FROM {$CFG->prefix}context ctx
++                  JOIN {$CFG->prefix}course_modules cm ON ctx.instanceid=cm.id
++                  JOIN {$CFG->prefix}context pctx ON cm.course=pctx.instanceid
++                 WHERE ctx.contextlevel=".CONTEXT_MODULE."
++                       AND pctx.contextlevel=".CONTEXT_COURSE."
++                           AND NOT EXISTS (SELECT 'x'
++                                           FROM {$CFG->prefix}context_temp temp
++                                           WHERE temp.id = ctx.id)
++                       $ctxemptyclause";
++        execute_sql($sql, $feedback);
++
++        context_level_base::flush_context_temp($feedback);
++    }
++}
++
++/**
++ * Class representing the block context level.
++ */
++class context_level_block extends context_level_base {
++    protected $level = CONTEXT_BLOCK;
++    protected $table = 'block_instance';
++
++    public function get_context_info($instanceid) {
++        global $CFG;
++        $result = true;
++        // Only non-pinned & course-page based
++        $sql = "SELECT ctx.path, ctx.depth
++                  FROM {$CFG->prefix}context           ctx
++                  JOIN {$CFG->prefix}block_instance    bi
++                    ON (bi.pageid=ctx.instanceid AND ctx.contextlevel=".CONTEXT_COURSE.")
++                 WHERE bi.id={$instanceid} AND bi.pagetype='course-view'";
++        if ($p = get_record_sql($sql)) {
++            $basepath  = $p->path;
++            $basedepth = $p->depth;
++        } else if ($bi = get_record('block_instance', 'id', $instanceid)) {
++            if ($bi->pagetype != 'course-view') {
++                // ok - not a course block
++                $basepath  = '/' . SYSCONTEXTID;
++                $basedepth = 1;
++            } else if ($parent = get_context_instance(CONTEXT_COURSE, $bi->pageid)) {
++                $basepath  = $parent->path;
++                $basedepth = $parent->depth;
++            } else {
++                // parent course does not exist - course blocks can not exist without a course
++                $result = false;
++            }
++        } else {
++            // block does not exist
++            $result = false;
++        }
++        return array($result, $basepath, $basedepth);
++    }
++
++    public function print_context_name($context, $withprefix = true, $short = false) {
++        $name = '';
++
++        if ($blockinstance = get_record('block_instance','id',$context->instanceid)) {
++            if ($block = get_record('block','id',$blockinstance->blockid)) {
++                global $CFG;
++                require_once("$CFG->dirroot/blocks/moodleblock.class.php");
++                require_once("$CFG->dirroot/blocks/$block->name/block_$block->name.php");
++                $blockname = "block_$block->name";
++                if ($blockobject = new $blockname()) {
++                    if ($withprefix){
++                        $name = get_string('block').': ';
++                    }
++                    $name .= $blockobject->title;
++                }
++            }
++        }
++
++        return $name;
++    }
++
++    public function fetch_context_capabilities_sql($context) {
++        global $CFG;
++
++        $cb = get_record('block_instance', 'id', $context->instanceid);
++        $block = get_record('block', 'id', $cb->blockid);
++
++        $extra = '';
++        if ($blockinstance = block_instance($block->name)) {
++            if ($extracaps = $blockinstance->get_extra_capabilities()) {
++                foreach ($extracaps as $key=>$value) {
++                    $extracaps[$key]= "'$value'";
++                }
++                $extra = implode(',', $extracaps);
++                $extra = "OR name IN ($extra)";
++            }
++        }
++
++        $SQL = "SELECT *
++                  FROM {$CFG->prefix}capabilities
++                 WHERE (contextlevel = ".CONTEXT_BLOCK."
++                       AND component = 'block/$block->name')
++                       $extra";
++
++       return $SQL;
++    }
++
++    public function get_child_contexts($context) {
++        //no children by default
++        return array();
++    }
++
++    public function get_component_string($component, $contextlevel) {
++        if( $component == 'moodle' ){
++            $string = get_string('block');
++        }else{
++            $string = get_string('blockname', 'block_'.basename($component));
++        }
++
++        return $string;
++    }
++
++    public function build_context_path($base, $emptyclause, $feedback=false) {
++        global $CFG;
++
++        $a = 'ctx';
++        eval('$ctxemptyclause = "'.$emptyclause.'";');
++        $a = $CFG->prefix.'context';
++        eval('$emptyclause = "'.$emptyclause.'";');
++
++        // Blocks - non-pinned course-view only
++        $sql = "INSERT INTO {$CFG->prefix}context_temp (id, path, depth)
++                SELECT ctx.id, ".sql_concat('pctx.path', "'/'", 'ctx.id').", pctx.depth+1
++                  FROM {$CFG->prefix}context ctx
++                  JOIN {$CFG->prefix}block_instance bi ON ctx.instanceid = bi.id
++                  JOIN {$CFG->prefix}context pctx ON bi.pageid=pctx.instanceid
++                 WHERE ctx.contextlevel=".CONTEXT_BLOCK."
++                       AND pctx.contextlevel=".CONTEXT_COURSE."
++                       AND bi.pagetype='course-view'
++                           AND NOT EXISTS (SELECT 'x'
++                                           FROM {$CFG->prefix}context_temp temp
++                                           WHERE temp.id = ctx.id)
++                       $ctxemptyclause";
++        execute_sql($sql, $feedback);
++
++        context_level_base::flush_context_temp($feedback);
++
++        // Blocks - others
++        $sql = "UPDATE {$CFG->prefix}context
++                   SET depth=2, path=".sql_concat("'$base/'", 'id')."
++                 WHERE contextlevel=".CONTEXT_BLOCK."
++                       AND EXISTS (SELECT 'x'
++                                     FROM {$CFG->prefix}block_instance bi
++                                    WHERE bi.id = {$CFG->prefix}context.instanceid
++                                          AND bi.pagetype!='course-view')
++                       $emptyclause ";
++        execute_sql($sql, $feedback);
++    }
++}
++
++/**
+  * Adds a context to the cache.
+  * @param object $context Context object to be cached
+  */
+@@ -1389,7 +2327,14 @@ function load_subcontext($userid, $context, &$accessdata) {
+     $courseroles    = aggregate_roles_from_accessdata($context, $accessdata);
+ 
+     // Do we have any interesting "local" roles?
+-    $localroles = array_diff($localroles,$courseroles); // only "new" local roles
++    if ($context->contextlevel <= CONTEXT_COURSE) {
++        // if the target context's context level is higher than the course
++        // level, then we're not guaranteed that we've loaded all the relevant
++        // role definitions, so we want to set $wherelocalroles whenever there
++        // are any $localroles defined
++        $localroles = array_diff($localroles,$courseroles); // only "new" local
++                                                            // roles
++    }
+     $wherelocalroles='';
+     if (count($localroles)) {
+         // Role defs for local roles in 'higher' contexts...
+@@ -1402,7 +2347,7 @@ function load_subcontext($userid, $context, &$accessdata) {
+ 
+     // We will want overrides for all of them
+     $whereroles = '';
+-    if ($roleids  = implode(',',array_merge($courseroles,$localroles))) {
++    if ($roleids  = implode(',',array_unique(array_merge($courseroles,$localroles)))) {
+         $whereroles = "rc.roleid IN ($roleids) AND";
+     }
+     $sql = "SELECT ctx.path, rc.roleid, rc.capability, rc.permission
+@@ -2029,180 +2974,66 @@ function assign_legacy_capabilities($capability, $legacyperms) {
+ 
+         $systemcontext = get_context_instance(CONTEXT_SYSTEM);
+ 
+-        if (!array_key_exists($type, $legacyroles)) {
+-            error('Incorrect legacy role definition for type: '.$type);
+-        }
+-
+-        if ($roles = get_roles_with_capability($legacyroles[$type], CAP_ALLOW)) {
+-            foreach ($roles as $role) {
+-                // Assign a site level capability.
+-                if (!assign_capability($capability, $perm, $role->id, $systemcontext->id)) {
+-                    return false;
+-                }
+-            }
+-        }
+-    }
+-    return true;
+-}
+-
+-
+-/**
+- * Checks to see if a capability is a legacy capability.
+- * @param $capabilityname
+- * @return boolean
+- */
+-function islegacy($capabilityname) {
+-    if (strpos($capabilityname, 'moodle/legacy') === 0) {
+-        return true;
+-    } else {
+-        return false;
+-    }
+-}
+-
+-
+-
+-/**********************************
+- * Context Manipulation functions *
+- **********************************/
+-
+-/**
+- * Create a new context record for use by all roles-related stuff
+- * assumes that the caller has done the homework.
+- *
+- * @param $level
+- * @param $instanceid
+- *
+- * @return object newly created context
+- */
+-function create_context($contextlevel, $instanceid) {
+-
+-    global $CFG;
+-
+-    if ($contextlevel == CONTEXT_SYSTEM) {
+-        return create_system_context();
+-    }
+-
+-    $context = new object();
+-    $context->contextlevel = $contextlevel;
+-    $context->instanceid = $instanceid;
+-
+-    // Define $context->path based on the parent
+-    // context. In other words... Who is your daddy?
+-    $basepath  = '/' . SYSCONTEXTID;
+-    $basedepth = 1;
+-
+-    $result = true;
+-
+-    switch ($contextlevel) {
+-        case CONTEXT_COURSECAT:
+-            $sql = "SELECT ctx.path, ctx.depth 
+-                    FROM {$CFG->prefix}context           ctx
+-                    JOIN {$CFG->prefix}course_categories cc
+-                      ON (cc.parent=ctx.instanceid AND ctx.contextlevel=".CONTEXT_COURSECAT.")
+-                    WHERE cc.id={$instanceid}";
+-            if ($p = get_record_sql($sql)) {
+-                $basepath  = $p->path;
+-                $basedepth = $p->depth;
+-            } else if ($category = get_record('course_categories', 'id', $instanceid)) {
+-                if (empty($category->parent)) {
+-                    // ok - this is a top category
+-                } else if ($parent = get_context_instance(CONTEXT_COURSECAT, $category->parent)) {
+-                    $basepath  = $parent->path;
+-                    $basedepth = $parent->depth;
+-                } else {
+-                    // wrong parent category - no big deal, this can be fixed later
+-                    $basepath  = null;
+-                    $basedepth = 0;
+-                }
+-            } else {
+-                // incorrect category id
+-                $result = false;
+-            }
+-            break;
+-
+-        case CONTEXT_COURSE:
+-            $sql = "SELECT ctx.path, ctx.depth
+-                    FROM {$CFG->prefix}context           ctx
+-                    JOIN {$CFG->prefix}course            c
+-                      ON (c.category=ctx.instanceid AND ctx.contextlevel=".CONTEXT_COURSECAT.")
+-                    WHERE c.id={$instanceid} AND c.id !=" . SITEID;
+-            if ($p = get_record_sql($sql)) {
+-                $basepath  = $p->path;
+-                $basedepth = $p->depth;
+-            } else if ($course = get_record('course', 'id', $instanceid)) {
+-                if ($course->id == SITEID) {
+-                    //ok - no parent category
+-                } else if ($parent = get_context_instance(CONTEXT_COURSECAT, $course->category)) {
+-                    $basepath  = $parent->path;
+-                    $basedepth = $parent->depth;
+-                } else {
+-                    // wrong parent category of course - no big deal, this can be fixed later
+-                    $basepath  = null;
+-                    $basedepth = 0;
+-                }
+-            } else if ($instanceid == SITEID) {
+-                // no errors for missing site course during installation
+-                return false;
+-            } else {
+-                // incorrect course id
+-                $result = false;
+-            }
+-            break;
+-
+-        case CONTEXT_MODULE:
+-            $sql = "SELECT ctx.path, ctx.depth
+-                    FROM {$CFG->prefix}context           ctx
+-                    JOIN {$CFG->prefix}course_modules    cm
+-                      ON (cm.course=ctx.instanceid AND ctx.contextlevel=".CONTEXT_COURSE.")
+-                    WHERE cm.id={$instanceid}";
+-            if ($p = get_record_sql($sql)) {
+-                $basepath  = $p->path;
+-                $basedepth = $p->depth;
+-            } else if ($cm = get_record('course_modules', 'id', $instanceid)) {
+-                if ($parent = get_context_instance(CONTEXT_COURSE, $cm->course)) {
+-                    $basepath  = $parent->path;
+-                    $basedepth = $parent->depth;
+-                } else {
+-                    // course does not exist - modules can not exist without a course
+-                    $result = false;
+-                }
+-            } else {
+-                // cm does not exist
+-                $result = false;
+-            }
+-            break;
+-
+-        case CONTEXT_BLOCK:
+-            // Only non-pinned & course-page based
+-            $sql = "SELECT ctx.path, ctx.depth
+-                    FROM {$CFG->prefix}context           ctx
+-                    JOIN {$CFG->prefix}block_instance    bi
+-                      ON (bi.pageid=ctx.instanceid AND ctx.contextlevel=".CONTEXT_COURSE.")
+-                    WHERE bi.id={$instanceid} AND bi.pagetype='course-view'";
+-            if ($p = get_record_sql($sql)) {
+-                $basepath  = $p->path;
+-                $basedepth = $p->depth;
+-            } else if ($bi = get_record('block_instance', 'id', $instanceid)) {
+-                if ($bi->pagetype != 'course-view') {
+-                    // ok - not a course block
+-                } else if ($parent = get_context_instance(CONTEXT_COURSE, $bi->pageid)) {
+-                    $basepath  = $parent->path;
+-                    $basedepth = $parent->depth;
+-                } else {
+-                    // parent course does not exist - course blocks can not exist without a course
+-                    $result = false;
++        if (!array_key_exists($type, $legacyroles)) {
++            error('Incorrect legacy role definition for type: '.$type);
++        }
++
++        if ($roles = get_roles_with_capability($legacyroles[$type], CAP_ALLOW)) {
++            foreach ($roles as $role) {
++                // Assign a site level capability.
++                if (!assign_capability($capability, $perm, $role->id, $systemcontext->id)) {
++                    return false;
++                }
++            }
++        }
+                 }
++    return true;
++}
++
++
++/**
++ * Checks to see if a capability is a legacy capability.
++ * @param $capabilityname
++ * @return boolean
++ */
++function islegacy($capabilityname) {
++    if (strpos($capabilityname, 'moodle/legacy') === 0) {
++        return true;
+             } else {
+-                // block does not exist
+-                $result = false;
++        return false;
+             }
+-            break;
+-        case CONTEXT_USER:
+-            // default to basepath
+-            break;
++}
++
++
++
++/**********************************
++ * Context Manipulation functions *
++ **********************************/
++
++/**
++ * Create a new context record for use by all roles-related stuff
++ * assumes that the caller has done the homework.
++ *
++ * @param $level
++ * @param $instanceid
++ *
++ * @return object newly created context
++ */
++function create_context($contextlevel, $instanceid) {
++
++    global $CFG;
++
++    if ($contextlevel == CONTEXT_SYSTEM) {
++        return create_system_context();
+     }
+ 
+-    // if grandparents unknown, maybe rebuild_context_path() will solve it later
++    $context = new object();
++    $context->contextlevel = $contextlevel;
++    $context->instanceid = $instanceid;
++
++    list($result, $basepath, $basedepth) = context_level_base::get_context_level($contextlevel)->get_context_info($instanceid);
++
++// if grandparents unknown, maybe rebuild_context_path() will solve it later
+     if ($basedepth != 0) {
+         $context->depth = $basedepth+1;
+     }
+@@ -2393,41 +3224,21 @@ function create_contexts($contextlevel=null, $buildpaths=true, $feedback=false)
+ function cleanup_contexts() {
+     global $CFG;
+ 
+-    $sql = "  SELECT c.contextlevel,
+-                     c.instanceid AS instanceid
+-              FROM {$CFG->prefix}context c
+-              LEFT OUTER JOIN {$CFG->prefix}course_categories t
+-                ON c.instanceid = t.id
+-              WHERE t.id IS NULL AND c.contextlevel = " . CONTEXT_COURSECAT . "
+-            UNION
+-              SELECT c.contextlevel,
+-                     c.instanceid
+-              FROM {$CFG->prefix}context c
+-              LEFT OUTER JOIN {$CFG->prefix}course t
+-                ON c.instanceid = t.id
+-              WHERE t.id IS NULL AND c.contextlevel = " . CONTEXT_COURSE . "
+-            UNION
+-              SELECT c.contextlevel,
+-                     c.instanceid
+-              FROM {$CFG->prefix}context c
+-              LEFT OUTER JOIN {$CFG->prefix}course_modules t
+-                ON c.instanceid = t.id
+-              WHERE t.id IS NULL AND c.contextlevel = " . CONTEXT_MODULE . "
+-            UNION
+-              SELECT c.contextlevel,
+-                     c.instanceid
+-              FROM {$CFG->prefix}context c
+-              LEFT OUTER JOIN {$CFG->prefix}user t
+-                ON c.instanceid = t.id
+-              WHERE t.id IS NULL AND c.contextlevel = " . CONTEXT_USER . "
+-            UNION
+-              SELECT c.contextlevel,
+-                     c.instanceid
+-              FROM {$CFG->prefix}context c
+-              LEFT OUTER JOIN {$CFG->prefix}block_instance t
+-                ON c.instanceid = t.id
+-              WHERE t.id IS NULL AND c.contextlevel = " . CONTEXT_BLOCK . "
+-           ";
++    // context class will contain function with the sql returned
++    // iterate over all the contexts to generate the sql
++
++    $sqlarray = array();
++
++    foreach(context_level_base::get_all_context_levels() as $cl) {
++        $currentsql = $cl->cleanup_contexts_sql();
++
++        if(!empty($currentsql)) {
++            $sqlarray[] = $currentsql;
++        }
++    }
++
++    $sql = implode("\n UNION \n", $sqlarray);
++
+     if ($rs = get_recordset_sql($sql)) {
+         begin_sql();
+         $tx = true;
+@@ -2502,7 +3313,6 @@ function preload_course_contexts($courseid) {
+ function get_context_instance($contextlevel, $instance=0) {
+ 
+     global $context_cache, $context_cache_id, $CFG;
+-    static $allowed_contexts = array(CONTEXT_SYSTEM, CONTEXT_USER, CONTEXT_COURSECAT, CONTEXT_COURSE, CONTEXT_MODULE, CONTEXT_BLOCK);
+ 
+     if ($contextlevel === 'clearcache') {
+         // TODO: Remove for v2.0
+@@ -2519,7 +3329,7 @@ function get_context_instance($contextlevel, $instance=0) {
+     }
+ 
+ /// check allowed context levels
+-    if (!in_array($contextlevel, $allowed_contexts)) {
++    if (!context_level_base::context_level_exists($contextlevel)) {
+         // fatal error, code must be fixed - probably typo or switched parameters
+         error('Error: get_context_instance() called with incorrect context level "'.s($contextlevel).'"');
+     }
+@@ -3194,6 +4004,31 @@ function load_capability_def($component) {
+     return $capabilities;
+ }
+ 
++/**
++ * Loads the context level definitions for the component (from file). If no
++ * context levels are defined for the component, we simply return an empty
++ * array.
++ * @param string $component - examples: 'moodle', 'mod/forum', 'block/quiz_results'
++ * @return array array of contexts levels
++ */
++function load_context_level_def($component='moodle') {
++    global $CFG;
++    require_once($CFG->libdir.'/moodlelib2.0.php');
++    $component = str_replace('/', '_', $component);
++
++    $defpath = get_component_directory($component).'/db/access.php';
++
++    $contexts = array();
++    if (file_exists($defpath)) {
++        require($defpath);
++        if (isset(${$component.'_contextlevels'})) {
++            $contexts = array_keys(${$component.'_contextlevels'});
++        }
++    }
++
++    return $contexts;
++}
++
+ 
+ /**
+  * Gets the capabilities that have been cached in the database for this
+@@ -3293,6 +4128,24 @@ function update_capabilities($component='moodle') {
+ 
+     $storedcaps = array();
+ 
++    $filectxlvl = load_context_level_def($component);
++    $strcomp = str_replace('/','_',$component);
++    $oldctxlvl = get_records('context_levels', 'component', $strcomp, '', 'name');
++    foreach ($filectxlvl as $contextlevel) {
++        if (!isset($oldctxlvl[$contextlevel])) {
++            $level = new object;
++            $level->name = $contextlevel;
++            $level->component = $strcomp;
++
++            if (!insert_record('context_levels', $level, false, 'id')) {
++                return false;
++            }
++        }
++    }
++    // FIXME: remove old context levels
++    // what needs to be cleaned up?
++    // - contexts (and kill all sub-contexts?)
++
+     $filecaps = load_capability_def($component);
+     $cachedcaps = get_cached_capabilities($component);
+     if ($cachedcaps) {
+@@ -3432,85 +4285,12 @@ function capabilities_cleanup($component, $newcapdef=NULL) {
+  * prints human readable context identifier.
+  */
+ function print_context_name($context, $withprefix = true, $short = false) {
+-
+-    $name = '';
+-    switch ($context->contextlevel) {
+-
+-        case CONTEXT_SYSTEM: // by now it's a definite an inherit
+-            $name = get_string('coresystem');
+-            break;
+-
+-        case CONTEXT_USER:
+-            if ($user = get_record('user', 'id', $context->instanceid)) {
+-                if ($withprefix){
+-                    $name = get_string('user').': ';
+-                }
+-                $name .= fullname($user);
+-            }
+-            break;
+-
+-        case CONTEXT_COURSECAT: // Coursecat -> coursecat or site
+-            if ($category = get_record('course_categories', 'id', $context->instanceid)) {
+-                if ($withprefix){
+-                    $name = get_string('category').': ';
+-                }
+-                $name .=format_string($category->name);
+-            }
+-            break;
+-
+-        case CONTEXT_COURSE: // 1 to 1 to course cat
+-            if ($context->instanceid == SITEID) {
+-                $name = get_string('frontpage', 'admin');
+-            } else {
+-                if ($course = get_record('course', 'id', $context->instanceid)) {
+-                    if ($withprefix){
+-                        $name = get_string('course').': ';
+-                    }
+-                    if (!$short){
+-                        $name .= format_string($course->shortname);
++    if (context_level_base::context_level_exists($context)) {
++        $context_level = context_level_base::get_context_level($context);
++        return $context_level->print_context_name($context, $withprefix, $short);
+                     } else {
+-                        $name .= format_string($course->fullname);
+-                   }
+-                }
+-            }
+-            break;
+-
+-        case CONTEXT_MODULE: // 1 to 1 to course
+-            if ($cm = get_record('course_modules','id',$context->instanceid)) {
+-                if ($module = get_record('modules','id',$cm->module)) {
+-                    if ($mod = get_record($module->name, 'id', $cm->instance)) {
+-                        if ($withprefix){
+-                            $name = get_string('activitymodule').': ';
+-                        }
+-                        $name .= $mod->name;
+-                    }
+-                }
+-            }
+-            break;
+-
+-        case CONTEXT_BLOCK: // not necessarily 1 to 1 to course
+-            if ($blockinstance = get_record('block_instance','id',$context->instanceid)) {
+-                if ($block = get_record('block','id',$blockinstance->blockid)) {
+-                    global $CFG;
+-                    require_once("$CFG->dirroot/blocks/moodleblock.class.php");
+-                    require_once("$CFG->dirroot/blocks/$block->name/block_$block->name.php");
+-                    $blockname = "block_$block->name";
+-                    if ($blockobject = new $blockname()) {
+-                        if ($withprefix){
+-                            $name = get_string('block').': ';
+-                        }
+-                        $name .= $blockobject->title;
+-                    }
+-                }
+-            }
+-            break;
+-
+-        default:
+             error ('This is an unknown context (' . $context->contextlevel . ') in print_context_name!');
+-            return false;
+-
+     }
+-    return $name;
+ }
+ 
+ 
+@@ -3529,110 +4309,13 @@ function print_context_name($context, $withprefix = true, $short = false) {
+  * `component` varchar(100) NOT NULL,
+  */
+ function fetch_context_capabilities($context) {
+-
+-    global $CFG;
+-
+-    $sort = 'ORDER BY contextlevel,component,name';   // To group them sensibly for display
+-
+-    switch ($context->contextlevel) {
+-
+-        case CONTEXT_SYSTEM: // all
+-            $SQL = "SELECT *
+-                      FROM {$CFG->prefix}capabilities";
+-        break;
+-
+-        case CONTEXT_USER:
+-            $extracaps = array('moodle/grade:viewall');
+-            foreach ($extracaps as $key=>$value) {
+-                $extracaps[$key]= "'$value'";
+-            }
+-            $extra = implode(',', $extracaps);
+-            $SQL = "SELECT *
+-                      FROM {$CFG->prefix}capabilities
+-                     WHERE contextlevel = ".CONTEXT_USER."
+-                           OR name IN ($extra)";
+-        break;
+-
+-        case CONTEXT_COURSECAT: // course category context and bellow
+-            $SQL = "SELECT *
+-                      FROM {$CFG->prefix}capabilities
+-                     WHERE contextlevel IN (".CONTEXT_COURSECAT.",".CONTEXT_COURSE.",".CONTEXT_MODULE.",".CONTEXT_BLOCK.")";
+-        break;
+-
+-        case CONTEXT_COURSE: // course context and bellow
+-            $SQL = "SELECT *
+-                      FROM {$CFG->prefix}capabilities
+-                     WHERE contextlevel IN (".CONTEXT_COURSE.",".CONTEXT_MODULE.",".CONTEXT_BLOCK.")";
+-        break;
+-
+-        case CONTEXT_MODULE: // mod caps
+-            $cm = get_record('course_modules', 'id', $context->instanceid);
+-            $module = get_record('modules', 'id', $cm->module);
+-
+-            $modfile = "$CFG->dirroot/mod/$module->name/lib.php";
+-            if (file_exists($modfile)) {
+-                include_once($modfile);
+-                $modfunction = $module->name.'_get_extra_capabilities';
+-                if (function_exists($modfunction)) {
+-                    $extracaps = $modfunction();
+-                }
+-            }
+-            if(empty($extracaps)) {
+-                $extracaps = array();
+-            }
+-
+-            // All modules allow viewhiddenactivities. This is so you can hide
+-            // the module then override to allow specific roles to see it.
+-            // The actual check is in course page so not module-specific
+-            $extracaps[]="moodle/course:viewhiddenactivities";
+-            if (count($extracaps) == 1) {
+-                $extra = "OR name = '".reset($extracaps)."'";
+-            } else {
+-                foreach ($extracaps as $key=>$value) {
+-                    $extracaps[$key]= "'$value'";
+-                }
+-                $extra = implode(',', $extracaps);
+-                $extra = "OR name IN ($extra)";
+-            }
+-
+-            $SQL = "SELECT *
+-                      FROM {$CFG->prefix}capabilities
+-                     WHERE (contextlevel = ".CONTEXT_MODULE."
+-                           AND component = 'mod/$module->name')
+-                           $extra";
+-        break;
+-
+-        case CONTEXT_BLOCK: // block caps
+-            $cb = get_record('block_instance', 'id', $context->instanceid);
+-            $block = get_record('block', 'id', $cb->blockid);
+-
+-            $extra = "";
+-            if ($blockinstance = block_instance($block->name)) {
+-                if ($extracaps = $blockinstance->get_extra_capabilities()) {
+-                    foreach ($extracaps as $key=>$value) {
+-                        $extracaps[$key]= "'$value'";
+-                    }
+-                    $extra = implode(',', $extracaps);
+-                    $extra = "OR name IN ($extra)";
+-                }
+-            }
+-
+-            $SQL = "SELECT *
+-                      FROM {$CFG->prefix}capabilities
+-                     WHERE (contextlevel = ".CONTEXT_BLOCK."
+-                           AND component = 'block/$block->name')
+-                           $extra";
+-        break;
+-
+-        default:
++    global $CFG;
++    if(context_level_base::context_level_exists($context)) {
++        $context_level = context_level_base::get_context_level($context);
++        return $context_level->fetch_context_capabilities($context);
++    } else {
+         return false;
+     }
+-
+-    if (!$records = get_records_sql($SQL.' '.$sort)) {
+-        $records = array();
+-    }
+-
+-    return $records;
+ }
+ 
+ 
+@@ -3744,81 +4427,13 @@ function is_inside_frontpage($context) {
+  * @return array of child records
+  */
+ function get_child_contexts($context) {
+-
+     global $CFG, $context_cache;
+ 
+-    // We *MUST* populate the context_cache as the callers
+-    // will probably ask for the full record anyway soon after
+-    // soon after calling us ;-)
+-
+-    switch ($context->contextlevel) {
+-
+-        case CONTEXT_BLOCK:
+-            // No children.
+-            return array();
+-        break;
+-
+-        case CONTEXT_MODULE:
+-            // No children.
+-            return array();
+-        break;
+-
+-        case CONTEXT_COURSE:
+-            // Find
+-            // - module instances - easy
+-            // - blocks assigned to the course-view page explicitly - easy
+-            $sql = " SELECT ctx.*
+-                     FROM {$CFG->prefix}context ctx
+-                     WHERE ctx.path LIKE '{$context->path}/%'
+-                           AND ctx.contextlevel IN (".CONTEXT_MODULE.",".CONTEXT_BLOCK.")
+-            ";
+-            $rs  = get_recordset_sql($sql);
+-            $records = array();
+-            while ($rec = rs_fetch_next_record($rs)) {
+-                $records[$rec->id] = $rec;
+-                $context_cache[$rec->contextlevel][$rec->instanceid] = $rec;
+-            }
+-            rs_close($rs);
+-            return $records;
+-        break;
+-
+-        case CONTEXT_COURSECAT:
+-            // Find
+-            // - categories
+-            // - courses
+-            $sql = " SELECT ctx.*
+-                     FROM {$CFG->prefix}context ctx
+-                     WHERE ctx.path LIKE '{$context->path}/%'
+-                           AND ctx.contextlevel IN (".CONTEXT_COURSECAT.",".CONTEXT_COURSE.")
+-            ";
+-            $rs  = get_recordset_sql($sql);
+-            $records = array();
+-            while ($rec = rs_fetch_next_record($rs)) {
+-                $records[$rec->id] = $rec;
+-                $context_cache[$rec->contextlevel][$rec->instanceid] = $rec;
+-            }
+-            rs_close($rs);
+-            return $records;
+-        break;
+-
+-        case CONTEXT_USER:
+-            // No children.
+-            return array();
+-        break;
+-
+-        case CONTEXT_SYSTEM:
+-            // Just get all the contexts except for CONTEXT_SYSTEM level
+-            // and hope we don't OOM in the process - don't cache
+-            $sql = 'SELECT c.*'.
+-                     'FROM '.$CFG->prefix.'context c '.
+-                    'WHERE contextlevel != '.CONTEXT_SYSTEM;
+-
+-            return get_records_sql($sql);
+-        break;
+-
+-        default:
++    if(context_level_base::context_level_exists($context)) {
++        $context_level = context_level_base::get_context_level($context);
++        return $context_level->get_child_contexts($context);
++    } else {
+             error('This is an unknown context (' . $context->contextlevel . ') in get_child_contexts!');
+-        return false;
+     }
+ }
+ 
+@@ -3927,64 +4542,12 @@ function get_capability_string($capabilityname) {
+  * @param $contextlevel
+  */
+ function get_component_string($component, $contextlevel) {
+-
+-    switch ($contextlevel) {
+-
+-        case CONTEXT_SYSTEM:
+-            if (preg_match('|^enrol/|', $component)) {
+-                $langname = str_replace('/', '_', $component);
+-                $string = get_string('enrolname', $langname);
+-            } else if (preg_match('|^block/|', $component)) {
+-                $langname = str_replace('/', '_', $component);
+-                $string = get_string('blockname', $langname);
+-            } else if (preg_match('|^local|', $component)) {
+-                $langname = str_replace('/', '_', $component);
+-                $string = get_string('local');
+-            } else if (preg_match('|^report/|', $component)) {
+-                $string = get_string('reports');
+-            } else {
+-                $string = get_string('coresystem');
+-            }
+-        break;
+-
+-        case CONTEXT_USER:
+-            $string = get_string('users');
+-        break;
+-
+-        case CONTEXT_COURSECAT:
+-            $string = get_string('categories');
+-        break;
+-
+-        case CONTEXT_COURSE:
+-            if (preg_match('|^gradeimport/|', $component)
+-                || preg_match('|^gradeexport/|', $component)
+-                || preg_match('|^gradereport/|', $component)) {
+-                $string = get_string('gradebook', 'admin');
+-            } else if (preg_match('|^coursereport/|', $component)) {
+-                $string = get_string('coursereports');
++    if(context_level_base::context_level_exists($contextlevel)) {
++        $context_level = context_level_base::get_context_level($contextlevel);
++        return $context_level->get_component_string($component, $contextlevel);
+             } else {
+-                $string = get_string('course');
+-            }
+-        break;
+-
+-        case CONTEXT_MODULE:
+-            $string = get_string('modulename', basename($component));
+-        break;
+-
+-        case CONTEXT_BLOCK:
+-            if( $component == 'moodle' ){
+-                $string = get_string('block');
+-            }else{
+-                $string = get_string('blockname', 'block_'.basename($component));
+-            }
+-        break;
+-
+-        default:
+             error ('This is an unknown context $contextlevel (' . $contextlevel . ') in get_component_string!');
+-        return false;
+-
+     }
+-    return $string;
+ }
+ 
+ /**
+@@ -5419,180 +5982,24 @@ function component_level_changed($cap, $comp, $contextlevel) {
+  */
+ function build_context_path($force=false, $feedback=false) {
+     global $CFG;
+-    require_once($CFG->libdir.'/ddllib.php');
+ 
+     // System context
+     $sitectx = get_system_context(!$force);
+     $base    = '/'.$sitectx->id;
+ 
+-    // Sitecourse
+-    $sitecoursectx = get_record('context',
+-                                'contextlevel', CONTEXT_COURSE,
+-                                'instanceid', SITEID);
+-    if ($force || $sitecoursectx->path !== "$base/{$sitecoursectx->id}") {
+-        set_field('context', 'path',  "$base/{$sitecoursectx->id}",
+-                  'id', $sitecoursectx->id);
+-        set_field('context', 'depth', 2,
+-                  'id', $sitecoursectx->id);
+-        $sitecoursectx = get_record('context',
+-                                    'contextlevel', CONTEXT_COURSE,
+-                                    'instanceid', SITEID);
+-    }
+-
+-    $ctxemptyclause = " AND (ctx.path IS NULL
+-                              OR ctx.depth=0) ";
+-    $emptyclause    = " AND ({$CFG->prefix}context.path IS NULL
+-                              OR {$CFG->prefix}context.depth=0) ";
+     if ($force) {
+-        $ctxemptyclause = $emptyclause = '';
+-    }
+-
+-    /* MDL-11347:
+-     *  - mysql does not allow to use FROM in UPDATE statements
+-     *  - using two tables after UPDATE works in mysql, but might give unexpected
+-     *    results in pg 8 (depends on configuration)
+-     *  - using table alias in UPDATE does not work in pg < 8.2
+-     */
+-    if ($CFG->dbfamily == 'mysql') {
+-        $updatesql = "UPDATE {$CFG->prefix}context ct, {$CFG->prefix}context_temp temp
+-                         SET ct.path  = temp.path,
+-                             ct.depth = temp.depth
+-                       WHERE ct.id = temp.id";
+-    } else if ($CFG->dbfamily == 'oracle') {
+-        $updatesql = "UPDATE {$CFG->prefix}context ct
+-                         SET (ct.path, ct.depth) =
+-                             (SELECT temp.path, temp.depth
+-                                FROM {$CFG->prefix}context_temp temp
+-                               WHERE temp.id=ct.id)
+-                       WHERE EXISTS (SELECT 'x'
+-                                       FROM {$CFG->prefix}context_temp temp
+-                                       WHERE temp.id = ct.id)";
++        $emptyclause = '';
+     } else {
+-        $updatesql = "UPDATE {$CFG->prefix}context
+-                         SET path  = temp.path,
+-                             depth = temp.depth
+-                        FROM {$CFG->prefix}context_temp temp
+-                       WHERE temp.id={$CFG->prefix}context.id";
++        $emptyclause    = ' AND ({$a}.path IS NULL
++                                  OR {$a}.depth=0) ';
+     }
+ 
+-    $udelsql = "TRUNCATE TABLE {$CFG->prefix}context_temp";
+-
+-    // Top level categories
+-    $sql = "UPDATE {$CFG->prefix}context
+-               SET depth=2, path=" . sql_concat("'$base/'", 'id') . "
+-             WHERE contextlevel=".CONTEXT_COURSECAT."
+-                   AND EXISTS (SELECT 'x'
+-                                 FROM {$CFG->prefix}course_categories cc
+-                                WHERE cc.id = {$CFG->prefix}context.instanceid
+-                                      AND cc.depth=1)
+-                   $emptyclause";
+-
+-    execute_sql($sql, $feedback);
+-
+-    execute_sql($udelsql, $feedback);
+-
+-    // Deeper categories - one query per depthlevel
+-    $maxdepth = get_field_sql("SELECT MAX(depth)
+-                               FROM {$CFG->prefix}course_categories");
+-    for ($n=2;$n<=$maxdepth;$n++) {
+-        $sql = "INSERT INTO {$CFG->prefix}context_temp (id, path, depth)
+-                SELECT ctx.id, ".sql_concat('pctx.path', "'/'", 'ctx.id').", $n+1
+-                  FROM {$CFG->prefix}context ctx
+-                  JOIN {$CFG->prefix}course_categories c ON ctx.instanceid=c.id
+-                  JOIN {$CFG->prefix}context pctx ON c.parent=pctx.instanceid
+-                 WHERE ctx.contextlevel=".CONTEXT_COURSECAT."
+-                       AND pctx.contextlevel=".CONTEXT_COURSECAT."
+-                       AND c.depth=$n
+-                       AND NOT EXISTS (SELECT 'x'
+-                                       FROM {$CFG->prefix}context_temp temp
+-                                       WHERE temp.id = ctx.id)
+-                       $ctxemptyclause";
+-        execute_sql($sql, $feedback);
++    execute_sql("TRUNCATE TABLE {$CFG->prefix}context_temp", $feedback);
+         
+-        // this is needed after every loop
+-        // MDL-11532
+-        execute_sql($updatesql, $feedback);
+-        execute_sql($udelsql, $feedback);
++    foreach(context_level_base::get_all_context_levels() as $cl) {
++        $cl->build_context_path($base, $emptyclause, $feedback);
+     }
+ 
+-    // Courses -- except sitecourse
+-    $sql = "INSERT INTO {$CFG->prefix}context_temp (id, path, depth)
+-            SELECT ctx.id, ".sql_concat('pctx.path', "'/'", 'ctx.id').", pctx.depth+1
+-              FROM {$CFG->prefix}context ctx
+-              JOIN {$CFG->prefix}course c ON ctx.instanceid=c.id
+-              JOIN {$CFG->prefix}context pctx ON c.category=pctx.instanceid
+-             WHERE ctx.contextlevel=".CONTEXT_COURSE."
+-                   AND c.id!=".SITEID."
+-                   AND pctx.contextlevel=".CONTEXT_COURSECAT."
+-                       AND NOT EXISTS (SELECT 'x'
+-                                       FROM {$CFG->prefix}context_temp temp
+-                                       WHERE temp.id = ctx.id)
+-                   $ctxemptyclause";
+-    execute_sql($sql, $feedback);
+-
+-    execute_sql($updatesql, $feedback);
+-    execute_sql($udelsql, $feedback);
+-
+-    // Module instances
+-    $sql = "INSERT INTO {$CFG->prefix}context_temp (id, path, depth)
+-            SELECT ctx.id, ".sql_concat('pctx.path', "'/'", 'ctx.id').", pctx.depth+1
+-              FROM {$CFG->prefix}context ctx
+-              JOIN {$CFG->prefix}course_modules cm ON ctx.instanceid=cm.id
+-              JOIN {$CFG->prefix}context pctx ON cm.course=pctx.instanceid
+-             WHERE ctx.contextlevel=".CONTEXT_MODULE."
+-                   AND pctx.contextlevel=".CONTEXT_COURSE."
+-                       AND NOT EXISTS (SELECT 'x'
+-                                       FROM {$CFG->prefix}context_temp temp
+-                                       WHERE temp.id = ctx.id)
+-                   $ctxemptyclause";
+-    execute_sql($sql, $feedback);
+-
+-    execute_sql($updatesql, $feedback);
+-    execute_sql($udelsql, $feedback);
+-
+-    // Blocks - non-pinned course-view only
+-    $sql = "INSERT INTO {$CFG->prefix}context_temp (id, path, depth)
+-            SELECT ctx.id, ".sql_concat('pctx.path', "'/'", 'ctx.id').", pctx.depth+1
+-              FROM {$CFG->prefix}context ctx
+-              JOIN {$CFG->prefix}block_instance bi ON ctx.instanceid = bi.id
+-              JOIN {$CFG->prefix}context pctx ON bi.pageid=pctx.instanceid
+-             WHERE ctx.contextlevel=".CONTEXT_BLOCK."
+-                   AND pctx.contextlevel=".CONTEXT_COURSE."
+-                   AND bi.pagetype='course-view'
+-                       AND NOT EXISTS (SELECT 'x'
+-                                       FROM {$CFG->prefix}context_temp temp
+-                                       WHERE temp.id = ctx.id)
+-                   $ctxemptyclause";
+-    execute_sql($sql, $feedback);
+-
+-    execute_sql($updatesql, $feedback);
+-    execute_sql($udelsql, $feedback);
+-
+-    // Blocks - others
+-    $sql = "UPDATE {$CFG->prefix}context
+-               SET depth=2, path=".sql_concat("'$base/'", 'id')."
+-             WHERE contextlevel=".CONTEXT_BLOCK."
+-                   AND EXISTS (SELECT 'x'
+-                                 FROM {$CFG->prefix}block_instance bi
+-                                WHERE bi.id = {$CFG->prefix}context.instanceid
+-                                      AND bi.pagetype!='course-view')
+-                   $emptyclause ";
+-    execute_sql($sql, $feedback);
+-
+-    // User
+-    $sql = "UPDATE {$CFG->prefix}context
+-               SET depth=2, path=".sql_concat("'$base/'", 'id')."
+-             WHERE contextlevel=".CONTEXT_USER."
+-                   AND EXISTS (SELECT 'x'
+-                                 FROM {$CFG->prefix}user u
+-                                WHERE u.id = {$CFG->prefix}context.instanceid)
+-                   $emptyclause ";
+-    execute_sql($sql, $feedback);
+-
+-    // Personal TODO
+-
+-    //TODO: fix group contexts
+-
+     // reset static course cache - it might have incorrect cached data
+     global $context_cache, $context_cache_id;
+     $context_cache    = array();
