@@ -381,6 +381,7 @@ class individual_user_report extends table_report {
                                      ON innercurass.userid = innerclsenr.userid
                                  WHERE innerclsenr.userid = usr.id
                                      AND innercurass.curriculumid = cur.id
+                                     AND innerclsenr.classid = cls.id
                                 ";
 
         // Main query

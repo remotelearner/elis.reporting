@@ -40,7 +40,7 @@ class block_php_report extends block_base {
         $this->title = get_string('title', 'block_php_report');
 
         $this->version = 2011042800;
-        $this->revision = '1.9.0';
+        $this->revision = '1.9.1';
     }
 
     /**
