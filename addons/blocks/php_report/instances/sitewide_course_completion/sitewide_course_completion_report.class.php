@@ -71,6 +71,9 @@ class sitewide_course_completion_report extends table_report {
     function require_dependencies() {
         global $CFG;
 
+        //needed to define CURMAN_DIRLOCATION
+        require_once($CFG->dirroot . '/curriculum/config.php');
+
         //needed for constants that define db tables
         require_once($CFG->dirroot . '/curriculum/lib/user.class.php');
         require_once($CFG->dirroot . '/curriculum/lib/student.class.php');
@@ -79,11 +82,14 @@ class sitewide_course_completion_report extends table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         $courses = array();
         $contexts = get_contexts_by_capability_for_user('course', $this->access_capability, $this->userid);
         $course_list = course_get_listing('name', 'ASC', 0, 0, '', '', $contexts);
@@ -412,6 +418,10 @@ class sitewide_course_completion_report extends table_report {
         }
 
         $sql .= "WHERE {$permissions_filter}";
+
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= ' AND usr.inactive = 0';
+        }
 
         return $sql;
     }

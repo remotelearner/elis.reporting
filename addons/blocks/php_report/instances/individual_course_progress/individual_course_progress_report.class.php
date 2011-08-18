@@ -155,30 +155,35 @@ class individual_course_progress_report extends table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         global $CFG, $CURMAN, $SESSION;
 
         $filters = array();
         $users = array();
 
-        $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
-        $user_objects = usermanagement_get_users('name', 'ASC', 0, 0, '', $contexts);
+        if ($init_data) {
+            $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
+            $user_objects = usermanagement_get_users_recordset('name', 'ASC', 0, 0, '', $contexts);
 
-        // If in interactive mode, user should have access to at least their own info
-        if ($this->execution_mode == php_report::EXECUTION_MODE_INTERACTIVE) {
-            $cm_user_id = cm_get_crlmuserid($this->userid);
-            $user_object = new user($cm_user_id);
-            $users[$user_object->id] = fullname($user_object) . ' (' . $user_object->idnumber . ')';
-        }
+            // If in interactive mode, user should have access to at least their own info
+            if ($this->execution_mode == php_report::EXECUTION_MODE_INTERACTIVE) {
+                $cm_user_id = cm_get_crlmuserid($this->userid);
+                $user_object = new user($cm_user_id);
+                $users[$user_object->id] = fullname($user_object) . ' (' . $user_object->idnumber . ')';
+            }
 
-        if (!empty($user_objects)) {
-            // Create a list of users this user has permissions to view
-            foreach ($user_objects as $user_object) {
-                $users[$user_object->id] = $user_object->name . ' (' . $user_object->idnumber . ')';
+            if (!empty($user_objects)) {
+                // Create a list of users this user has permissions to view
+                while ($user_object = rs_fetch_next_record($user_objects)) {
+                    $users[$user_object->id] = $user_object->name . ' (' . $user_object->idnumber . ')';
+                }
             }
         }
 

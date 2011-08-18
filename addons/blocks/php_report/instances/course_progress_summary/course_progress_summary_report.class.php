@@ -84,11 +84,14 @@ class course_progress_summary_report extends table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         global $CFG, $CURMAN, $SESSION;
 
         $cms = array();
@@ -286,6 +289,8 @@ class course_progress_summary_report extends table_report {
                   ON cls.courseid = crs.id
                 JOIN {$CURMAN->db->prefix_table(STUTABLE)} enrol
                   ON enrol.classid = cls.id
+                JOIN {$CURMAN->db->prefix_TABLE(USRTABLE)} crlmu
+                  ON enrol.userid = crlmu.id
                 LEFT JOIN {$CURMAN->db->prefix_table(CRSCOMPTABLE)} comp
                   ON comp.courseid = crs.id
                 LEFT JOIN {$CURMAN->db->prefix_table(CLSGRTABLE)} clsgr
@@ -306,10 +311,12 @@ class course_progress_summary_report extends table_report {
         // Add where sub-query and curricula filter
          //                   JOIN {$CURMAN->db->prefix_table(CURTABLE)} curr
          //                      ON currcrs.curricululmid = curr.id
+        $where = array();
         if ($curr_filter != '') {
             $sql .= " JOIN {$CURMAN->db->prefix_table(CURCRSTABLE)} curcrs
-                        ON curcrs.courseid = crs.id
-                     WHERE EXISTS (
+                        ON curcrs.courseid = crs.id";
+
+            $where[] = "EXISTS (
                              SELECT *
                              FROM {$CURMAN->db->prefix_table(STUTABLE)} enrol2
                                 JOIN {$CURMAN->db->prefix_table(CLSTABLE)} cls2
@@ -321,14 +328,16 @@ class course_progress_summary_report extends table_report {
                                  AND curass.userid = enrol2.userid
                                 WHERE enrol.id = enrol2.id
                                 {$curr_filter})";
-            if ($permissions_filter != '') {
-                $sql .= " AND {$permissions_filter}";
-            }
-
-        } elseif ($permissions_filter != '') {
-            $sql .= " WHERE {$permissions_filter}";
         }
-
+        if ($permissions_filter != '') {
+            $where[] = $permissions_filter;
+        }
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $where[] = 'crlmu.inactive = 0';
+        }
+        if (!empty($where)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
+        }
 
         return $sql;
     }

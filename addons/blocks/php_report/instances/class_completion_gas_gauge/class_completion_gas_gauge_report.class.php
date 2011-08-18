@@ -74,6 +74,8 @@ class class_completion_gas_gauge_report extends gas_gauge_table_report {
         //needed for constants that define db tables
         require_once($CFG->dirroot . '/curriculum/lib/user.class.php');
         require_once($CFG->dirroot . '/curriculum/lib/cmclass.class.php');
+        //needed for completion status constants
+        require_once($CFG->dirroot . '/curriculum/lib/student.class.php');
         //needed to get the complete status id values
         require_once($CFG->dirroot . '/curriculum/usermanagementpage.class.php');
     }
@@ -204,11 +206,14 @@ class class_completion_gas_gauge_report extends gas_gauge_table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         //filter by user inactive status
         $inactive_options = array('choices' => array(get_string('filter_inactive_yes', $this->lang_file) => array(0, 1),
                                                      get_string('filter_inactive_no',  $this->lang_file) => array(0)),
@@ -307,11 +312,8 @@ class class_completion_gas_gauge_report extends gas_gauge_table_report {
             $record->classidnumber = '';
         }
 
-        if ($record->completestatus == STUSTATUS_PASSED) {
-            $record->completestatus = get_string('status_complete', $this->lang_file);
-        } else {
-            $record->completestatus = get_string('status_incomplete', $this->lang_file);
-        }
+        $status = student::$completestatusid_values[$record->completestatus];
+        $record->completestatus = get_string($status, 'block_curr_admin');
 
         if ($export_format == php_report::$EXPORT_FORMAT_HTML) {
             //convert user name to their full name and link to the CM user page for that user

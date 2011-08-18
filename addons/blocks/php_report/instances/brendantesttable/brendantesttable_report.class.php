@@ -10,11 +10,14 @@ class brendantesttable_report extends table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
-     * 
-     * @return  generalized_filter_entry array  The list of available filters
+     * (empty by default but can be implemented by child class)
+     *
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         return array(new generalized_filter_entry('timecreated', 'u', 'firstaccess', get_string('filter_time_created', 'rlreport_brendantesttable'), false, 'date'),
                      new generalized_filter_entry('auth', 'u', 'auth', get_string('filter_auth', 'rlreport_brendantesttable'), false, 'equalityselect', array('choices' => array('manual' => 'manual', 'other' => 'other'), 'default' => null, 'numeric' => 0)),
                      new generalized_filter_entry('profileselect', 'u', 'id', get_string('filter_profile_field', 'rlreport_brendantesttable'), false, 'profileselect', array('profilefieldname' => 'awesomefield', 'default' => null)),

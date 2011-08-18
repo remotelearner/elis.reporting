@@ -30,7 +30,6 @@ global $CFG;
 // Require all related classes to access session variables
 require_once($CFG->dirroot.'/blocks/php_report/instances/course_progress_summary/course_progress_summary_report.class.php');
 require_once($CFG->dirroot.'/blocks/php_report/php_report_base.php');
-require_once($CFG->dirroot.'/blocks/php_report/php_report_block.class.php');
 require_once($CFG->dirroot.'/blocks/php_report/lib/filtering.php');
 require_once($CFG->dirroot.'/curriculum/lib/filtering/lib.php');
 require_once($CFG->dirroot.'/curriculum/lib/filtering/custom_field_multiselect.php');
@@ -81,18 +80,10 @@ if (isset($fieldidlist) && !empty($fieldidlist)) {
     // Get custom field names if we have a list of custom ids and no names
     if ((!isset($fieldnamelist) || empty($fieldnamelist)) &&
         !($scheduled && $action == 'init')) {
-        $multiselect_filter_obj = $SESSION->php_reports[$block_id]->inner_report->multiselect_filter;
-        $multiselect_filter_obj->options['reportname'] = $reportname;
-        $multi_filter_values = new generalized_filter_custom_field_multiselect_values($multiselect_filter_obj->uniqueid,
-                                                                                      $multiselect_filter_obj->tablealias,
-                                                                                      $multiselect_filter_obj->fieldname,
-                                                                                      $multiselect_filter_obj->displayname,
-                                                                                      $multiselect_filter_obj->advanced,
-                                                                                      $multiselect_filter_obj->type,
-                                                                                      $multiselect_filter_obj->options,
-                                                                                      base64_encode(serialize($fieldidlist)),
-                                                                                      $fieldnamelist,
-                                                                                      $action);
+        //todo: change this to work in a static context
+        $options = array('fieldids' => array(), 'block_instance' => array());
+        $multi_filter_values = new generalized_filter_custom_field_multiselect_values('bogus', 'bogus', 'bogus', 'bogus', false,
+                                                                                      'bogus', $options, base64_encode(serialize($fieldidlist)), $fieldnamelist);
         $multi_filter_values->get_names();
         $fieldidlist = $multi_filter_values->_fieldidlist;
         $fieldnamelist = $multi_filter_values->_fieldnamelist;

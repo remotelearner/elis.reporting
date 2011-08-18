@@ -213,11 +213,14 @@ class course_completion_gas_gauge_report extends gas_gauge_table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         //filter by user inactive status
 
         $inactive_yes_label = get_string('filter_inactive_yes', 'rlreport_course_completion_gas_gauge');
@@ -276,7 +279,7 @@ class course_completion_gas_gauge_report extends gas_gauge_table_report {
         $page_value_condition = $this->get_page_value_condition('crs.id');
 
         return "SELECT {$columns}, u.lastname, COUNT(cc.id) AS numcompletionelements,
-                u.id AS cmuserid, class_count.numclasses, gi.grademax
+                u.id AS cmuserid, gi.grademax
                 FROM
                 {$CURMAN->db->prefix_table(USRTABLE)} u
                 JOIN {$CURMAN->db->prefix_table(STUTABLE)} stu
@@ -304,18 +307,6 @@ class course_completion_gas_gauge_report extends gas_gauge_table_report {
                 LEFT JOIN {$CURMAN->db->prefix_table('grade_grades')} gg
                   ON mdlu.id = gg.userid
                   AND gi.id = gg.itemid
-                JOIN (
-                  SELECT COUNT(inner_cls.id) AS numclasses,
-                         inner_stu.userid,
-                         inner_cls.courseid
-                  FROM {$CURMAN->db->prefix_table(STUTABLE)} inner_stu
-                  JOIN {$CURMAN->db->prefix_table(CLSTABLE)} inner_cls
-                    ON inner_stu.classid = inner_cls.id
-                  GROUP BY inner_stu.userid,
-                           inner_cls.courseid
-                ) class_count
-                  ON stu.userid = class_count.userid
-                  AND crs.id = class_count.courseid
                 WHERE {$page_value_condition}";
     }
 
@@ -329,12 +320,6 @@ class course_completion_gas_gauge_report extends gas_gauge_table_report {
      * @return  stdClass                  The reformatted record
      */
     function transform_record($record, $export_format) {
-
-        //clear out the class info if there is only one class enrolment for the user and course
-        if ($record->numclasses == 1) {
-            $record->classidnumber = '';
-        }
-
         if ($record->completestatus == STUSTATUS_PASSED) {
             $record->completestatus = get_string('status_complete', 'rlreport_course_completion_gas_gauge');
         } else {

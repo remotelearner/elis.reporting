@@ -28,8 +28,6 @@
 require_once($CFG->dirroot . '/elis/core/lib/page.class.php');
 //report base class
 require_once($CFG->dirroot . '/blocks/php_report/php_report_base.php');
-//report container
-require_once($CFG->dirroot . '/blocks/php_report/php_report_block.class.php');
 
 if (!defined('REPORT_PAGE_NUM_RECORDS')) {
     define('REPORT_PAGE_NUM_RECORDS', 20);
@@ -89,20 +87,10 @@ class report_page extends elis_page {
      */
     function action_default() {
         global $CFG;
-        
-        //name of class for specific report instance
-        $classname = $this->report_shortname . '_report';
-        
-        //initialize report block, to be dispalyed at 100% width
-        $reportblock = new php_report_block($this->report_shortname, TRUE, $this->report_instance->get_display_name(),
-                                            0, REPORT_PAGE_NUM_RECORDS, $classname, '100%');
-        
+
         //import necessary CSS
         $stylesheet_web_path = $CFG->wwwroot . '/blocks/php_report/styles.php';
         echo '<style>@import url("' . $stylesheet_web_path . '");</style>';
-        
-        //output the report contents
-        echo $reportblock->display();
         
         //needed for AJAX calls
         require_js(array('yui_yahoo',
@@ -113,12 +101,16 @@ class report_page extends elis_page {
                          "{$CFG->wwwroot}/blocks/php_report/throbber.php"));
         
         //set up JS work to contain dynamic output in the report div
+        //(make sure to do this before rendering the report because report rendering
+        //may "die" after showing parameters
         echo "
         <script>
           my_handler = new associate_link_handler('{$CFG->wwwroot}/blocks/php_report/dynamicreport.php',
                                                   'php_report_body_{$this->report_shortname}');
         </script>";
         
+        //output the report contents
+        $this->report_instance->main('', '', 0, 20, '', $this->report_shortname);
     }
     
     /**

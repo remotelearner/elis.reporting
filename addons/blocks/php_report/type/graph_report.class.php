@@ -167,7 +167,7 @@ abstract class graph_report extends php_report {
      */
     function init_all($id, $parameter_data = NULL) {
         //set up filters
-        $this->init_filter($id);
+        $this->init_filter($id, false);
 
         //calculate the graph data
         $this->calculate_data();
@@ -186,6 +186,8 @@ abstract class graph_report extends php_report {
     function main($sort = '', $dir = '', $page = 0, $perpage = 20, $download = '', $id = 0) {
         global $CFG;
 
+        $this->display_header();
+        
         //initialize all necessary data
         $this->init_all($id);
 
@@ -194,6 +196,8 @@ abstract class graph_report extends php_report {
 
         //display the main graph
         $this->print_bars($id);
+        
+        $this->display_footer();
     }
 
 }

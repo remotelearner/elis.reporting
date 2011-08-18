@@ -131,28 +131,33 @@ class individual_user_report extends table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         $filters = array();
         $users = array();
 
-        $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
-        $user_objects = usermanagement_get_users('name', 'ASC', 0, 0, '', $contexts);
+        if ($init_data) {
+            $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
+            $user_objects = usermanagement_get_users_recordset('name', 'ASC', 0, 0, '', $contexts);
 
-        // If in interactive mode, user should have access to at least their own info
-        if ($this->execution_mode == php_report::EXECUTION_MODE_INTERACTIVE) {
-            $cm_user_id = cm_get_crlmuserid($this->userid);
-            $user_object = new user($cm_user_id);
-            $users[$user_object->id] = fullname($user_object) . ' (' . $user_object->idnumber . ')';
-        }
+            // If in interactive mode, user should have access to at least their own info
+            if ($this->execution_mode == php_report::EXECUTION_MODE_INTERACTIVE) {
+                $cm_user_id = cm_get_crlmuserid($this->userid);
+                $user_object = new user($cm_user_id);
+                $users[$user_object->id] = fullname($user_object) . ' (' . $user_object->idnumber . ')';
+            }
 
-        if (!empty($user_objects)) {
-            // Create a list of users this user has permissions to view
-            foreach ($user_objects as $user_object) {
-                $users[$user_object->id] = $user_object->name . ' (' . $user_object->idnumber . ')';
+            if (!empty($user_objects)) {
+                // Create a list of users this user has permissions to view
+                while ($user_object = rs_fetch_next_record($user_objects)) {
+                    $users[$user_object->id] = $user_object->name . ' (' . $user_object->idnumber . ')';
+                }
             }
         }
 
@@ -259,17 +264,22 @@ class individual_user_report extends table_report {
              $result = array();
          } else if ($grouping->id == 'class_idnumber') {
              $date_completed = (empty($datum->date_completed))
-                             ? get_string('not_complete',$this->lang_file)
-                             : $this->userdate($datum->date_completed);
+                             ? '-'
+                             : $this->userdate($datum->date_completed, get_string('strftimedaydate'));
              $status = $datum->status;
              if ($status == STUSTATUS_NOTCOMPLETE) {
                  $status = get_string('transform_incomplete',$this->lang_file);
+                 // if user is not complete, ignore the credits and date
+                 // completed fields
+                 $datum->credits = 0;
+                 $datum->date_completed = 0;
+                 $date_completed = get_string('not_complete',$this->lang_file);
              } else {
                  $status = get_string('transform_complete',$this->lang_file);
              }
              $expires = (empty($datum->expires))
                       ? get_string('not_available',$this->lang_file)
-                      : $this->userdate($datum->expires);
+                      : $this->userdate($datum->expires, get_string('strftimedaydate'));
              $result = array();
              $result[] = $this->add_grouping_header(
                                  get_string('grouping_course', $this->lang_file) . ': ',
@@ -381,6 +391,7 @@ class individual_user_report extends table_report {
                                      ON innercurass.userid = innerclsenr.userid
                                  WHERE innerclsenr.userid = usr.id
                                      AND innercurass.curriculumid = cur.id
+                                     AND innerclsenr.classid = cls.id
                                 ";
 
         // Main query

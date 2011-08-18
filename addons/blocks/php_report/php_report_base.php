@@ -223,9 +223,12 @@ abstract class php_report {
      * Specifies available report filters
      * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         //no filters by default
         return array();
     }
@@ -237,20 +240,34 @@ abstract class php_report {
      * @return  boolean  true if one more more filters are defined, or false if none are
      */
     function has_filters() {
-        //get the list of defined filters
-        $filters = $this->get_filters();
+        //default to true, since almost all reports will have some filtering options
+        return true;
+    }
 
-        //check how many there are
-        return count($filters) > 0;
+    /**
+     * Sets up the secondary filterings based on the report definitions
+     *
+     * @param   string  $url               The URL used to dynamically reload this report
+     * @param   string  $id                This report's unique identifier
+     * @param   string  $report_shortname  The shortname of the configured report
+     *
+     * @return  array                      Mapping of pre-set filtering keys to filtering objects
+     */
+    function get_secondary_filterings($url, $id, $report_shortname) {
+        return array();
     }
 
     /**
      * Initialize the filter object
+     *
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     * 
      */
-    function init_filter($id) {
+    function init_filter($id, $init_data = true) {
         global $CFG;
-        if (!isset($this->filter) && $filters = $this->get_filters()) {
-            $dynamic_report_filter_url = $CFG->wwwroot . '/blocks/php_report/dynamicreport.php?id=' . $id . '&filterchange=1';
+        if (!isset($this->filter) && $filters = $this->get_filters($init_data)) {
+            $dynamic_report_filter_url = $CFG->wwwroot . '/blocks/php_report/dynamicreport.php?id=' . $id;
             $this->filter = new php_report_default_capable_filtering($filters, $dynamic_report_filter_url, null, $id, $this->get_report_shortname());
         }
     }
@@ -362,8 +379,9 @@ abstract class php_report {
         //determine if we should show the configure filter link
         $show_config_filters_link = true;
 
-        $test_filters = $this->get_filters();
-        if (empty($test_filters)) {
+        //NOTE: using has_filters instead of get_filters so reports can
+        //specify this info without having to construct filters
+        if (!$this->has_filters()) {
             //no filters are defined for this report
             $show_config_filters_link = false;
         }
@@ -393,7 +411,8 @@ abstract class php_report {
         if ($show_config_filters_link) {
             //link for configuring parameters
             $alt_text = get_string('config_params', 'block_php_report');
-            $config_params_url = $CFG->wwwroot . '/blocks/php_report/config_params.php?id=' . $this->id;
+            //link to parameter screen with cancel button
+            $config_params_url = $CFG->wwwroot . '/blocks/php_report/config_params.php?id=' . $this->id . '&showcancel=1';
             $result .= '<a href="' . $config_params_url . '">' .
                        '<img src="' . $CFG->wwwroot . '/blocks/php_report/pix/configuration.png" border="0" width="16" height="16" ' .
                        'alt="' . $alt_text . '" title="' . $alt_text . '">' .
@@ -701,6 +720,179 @@ abstract class php_report {
         return userdate($date, $format, $timezone, $fixday);
     }
 
+    /**
+     * Methods related to UI / output
+     */
+
+    /**
+     * Method to determine if we should first display 'Configure parameters' filter form
+     *
+     * @return   boolean  true if should redirect to filter form, false otherwise.
+     */
+    function shouldredirecttofilter() {
+        if (!$this->has_filters()) {
+            return false;
+        }
+
+        if ($data = data_submitted()) {
+            //a forum submit action happened, so render the report
+            return false;
+        }
+
+        if (!empty($_GET)) {
+            //determine how many URL parameters were passed in
+            $array_get = (array)$_GET;
+            $num_elements = count($array_get);
+
+            if (isset($array_get['report'])) {
+                //don't count the report shortname
+                $num_elements--;
+            }
+
+            if ($num_elements > 0) {
+                //a non-innocuous URL parameter was passed in,
+                //so render the report
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Outputs the HTML content needed at the beginning of a report,
+     * including handling the filter form display if necessary
+     */
+    function display_header() {
+        global $CFG, $USER;
+        
+        $report_shortname = $this->get_report_shortname();
+
+        //these JS files are needed for async reporting requests
+        require_js($CFG->wwwroot . '/blocks/php_report/reportblock.js');
+        require_js(array('yui_yahoo',
+                         'yui_dom',
+                         'yui_event',
+                         'yui_connection'));
+
+        //outermost report div
+        $output = '<div id="php_report_block" class="php_report_block">';
+        //div for containing report body
+        $output .= '<div class="php_report_body" id="php_report_body_' . $this->id . '">';
+
+        //for displaying the loading animation
+        $output .= '<div id="throbber"></div>';
+        
+        if ($this->shouldredirecttofilter()) {
+            //display parameter / filter UI
+
+            $this->require_dependencies();
+            
+            ob_start();
+            $_GET['id'] = $this->get_report_shortname();
+            $_GET['mode'] = 'bare';
+            $_GET['url'] = "{$CFG->wwwroot}/blocks/php_report/config_params.php";
+
+            include(dirname(__FILE__) .'/config_params.php');
+            
+            $output .= ob_get_contents();
+            ob_end_clean();
+            
+            //end of php_report_body div
+            $output .= '</div>';
+            //end of php_report_block div
+            $output .= '</div>';
+            
+            echo $output;
+            die;
+        }
+        
+        //Set up an appropriate stylesheet
+        $folder_name = $this->get_report_shortname();
+
+        //Calculate the URL of the stylesheet
+        $stylesheet_web_path = $CFG->wwwroot . '/blocks/php_report/instances/' . $folder_name . '/styles.css';
+        //Calculate the file path of the stylesheet for an existence check
+        $stylesheet_file_path = $CFG->dirroot . substr($stylesheet_web_path, strlen($CFG->wwwroot));
+
+        //Reference stylsheet if it exists
+        if(file_exists($stylesheet_file_path)) {
+            $output .= '<style>@import url("' . $stylesheet_web_path . '");</style>';
+        }
+
+        //Report specific div
+        $output .= '<div class="' . $folder_name . ' ' . $this->get_report_content_css_classes(get_class($this)) . '">';
+        $output .= '<br/>';
+        
+        echo $output;
+    }
+
+    /**
+     * Uses a base classname to create a CSS class for the current report
+     */
+    static function get_report_content_css_classes($base_classname) {
+        $css_classes = array();
+        
+        $current = $base_classname;
+        
+        //keep grabbing the parent class until you run out of classes
+        while ($current !== false) {
+            $css_classes[] = $current;
+            $current = get_parent_class($current);
+        }
+        
+        //combine all classnames into a string
+        return implode(' ', $css_classes);
+    }
+    
+    function display_footer() {
+        global $CFG;
+
+        //Add refresh button and info about when last run
+        $output = $this->get_lastload_display($this->get_report_shortname());
+
+        //end of report / custom CSS div
+        $output .= '</div>';
+        //end of php_report_body div
+        $output .= '</div>';
+        //end of php_report_block div
+        $output .= '</div>';
+        
+        echo $output;
+    }
+
+    /**
+     * Calculates and returns a message to display that
+     * informs users on how recent their data is
+     *
+     * @param   int|string     $id  The current report block id
+     *
+     * @return  string         HTML for a form with the display text and a reset button
+     */
+    function get_lastload_display($id = 0) {
+        global $CFG, $USER;
+
+        $format = '%A, %B %e, %l:%M:%S %P';
+
+        $element_id = 'refresh_report';
+        if(!empty($id)) {
+            $element_id .= '_' . $id;
+        }
+
+        $timezone = 99;
+        if(isset($USER->timezone)) {
+            $timezone = $USER->timezone;
+        }
+        $lastload = time();
+        $a = userdate($lastload, $format, $timezone);
+
+        return '<form id="' . $element_id . '" action="' . $CFG->wwwroot . '/blocks/php_report/dynamicreport.php" ' .
+               'onsubmit="start_throbber(); return true;" >' .
+               '<input type="hidden" id="id" name="id" value="' . $id . '" />' .
+               '<p align="center" class="php_report_caching_info">' . get_string('infocurrent', 'block_php_report', $a) . '<br/>' .
+               '<input id="' . $element_id . '" type="submit" value="Refresh"/>' . '</p>' .
+               '</form>';
+    }
 }
 
 /**

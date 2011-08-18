@@ -95,6 +95,9 @@ class course_completion_by_cluster_report extends table_report {
     function require_dependencies() {
         global $CFG;
 
+        //needed to define CURMAN_DIRLOCATION
+        require_once($CFG->dirroot . '/curriculum/config.php');
+
         //needed for constants that define db tables
         require_once($CFG->dirroot.'/curriculum/lib/cmclass.class.php');
 
@@ -104,11 +107,14 @@ class course_completion_by_cluster_report extends table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
 
         //cluster tree
         $enable_tree_label = get_string('enable_tree', 'rlreport_course_completion_by_cluster');
@@ -316,6 +322,12 @@ class course_completion_by_cluster_report extends table_report {
                                      enrol.completetime AS enrolcompletetime,
                                      curriculum_assignment.timecompleted AS curriculumcompletetime";
 
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $inactive = ' AND user.inactive = 0';
+        } else {
+            $inactive = '';
+        }
+
         //extra column needed for the non-curriculum-specific records
         $extra_noncurriculum_columns = str_replace('curriculum.id', 'NULL', $extra_curriculum_columns);
         $extra_noncurriculum_columns = str_replace('curriculum.name', 'NULL', $extra_noncurriculum_columns);
@@ -378,6 +390,7 @@ class course_completion_by_cluster_report extends table_report {
                   {$completion_tables}
 
                   {$curriculum_filter}
+                  {$inactive}
 
                   {$group_by}
 
@@ -404,6 +417,7 @@ class course_completion_by_cluster_report extends table_report {
 
                   WHERE curriculum_assignment.id IS NULL
                   {$noncurriculum_filter}
+                  {$inactive}
 
                   {$noncurriculum_group_by}
                 ) main_data

@@ -69,6 +69,9 @@ class class_roster_report extends table_report {
     function require_dependencies() {
         global $CFG;
 
+        //needed to define CURMAN_DIRLOCATION
+        require_once($CFG->dirroot . '/curriculum/config.php');
+
         //needed for options filters
         require_once($CFG->dirroot . '/curriculum/lib/filtering/lib.php');
         require_once($CFG->dirroot . '/curriculum/lib/filtering/clusterselect.php');
@@ -85,11 +88,14 @@ class class_roster_report extends table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         global $CFG;
 
         $filter_array = array();
@@ -191,7 +197,7 @@ class class_roster_report extends table_report {
                 if (!empty($startdate)) {
                     $header_obj = new stdClass;
                     $header_obj->label = get_string('header_start_date',$this->lang_file).':';
-                    $header_obj->value = $this->userdate($startdate);
+                    $header_obj->value = $this->userdate($startdate, get_string('strftimedaydate'));
                     $header_obj->css_identifier = '';
                     $header_array[] = $header_obj;
                 }
@@ -200,7 +206,7 @@ class class_roster_report extends table_report {
                 if (!empty($enddate)) {
                     $header_obj = new stdClass;
                     $header_obj->label = get_string('header_end_date',$this->lang_file).':';
-                    $header_obj->value = $this->userdate($enddate);
+                    $header_obj->value = $this->userdate($enddate, get_string('strftimedaydate'));
                     $header_obj->css_identifier = '';
                     $header_array[] = $header_obj;
                 }
@@ -279,6 +285,10 @@ class class_roster_report extends table_report {
                     ON crs.id=cls.courseid
                     WHERE {$permissions_filter}
                ";
+
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= ' AND usr.inactive = 0';
+        }
 
         return $sql;
     }

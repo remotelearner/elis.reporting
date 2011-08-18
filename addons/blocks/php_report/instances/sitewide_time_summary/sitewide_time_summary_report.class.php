@@ -24,8 +24,6 @@
  *
  */
 require_once($CFG->dirroot .'/blocks/php_report/type/table_report.class.php');
-require_once($CFG->dirroot .'/curriculum/lib/student.class.php');
-require_once($CFG->dirroot .'/curriculum/lib/user.class.php');
 
 define('STSR_DATE_FORMAT', get_string('date_format', 'rlreport_sitewide_time_summary'));
 define('SECS_PER_DAY', 60 * 60 * 24);
@@ -178,6 +176,9 @@ class sitewide_time_summary_report extends table_report {
     function require_dependencies() {
         global $CFG;
 
+        //needed to define CURMAN_DIRLOCATION
+        require_once($CFG->dirroot . '/curriculum/config.php');
+
         //needed for options filters
         require_once($CFG->dirroot . '/curriculum/lib/filtering/lib.php');
         require_once($CFG->dirroot . '/curriculum/lib/filtering/date.php');
@@ -185,6 +186,9 @@ class sitewide_time_summary_report extends table_report {
         require_once($CFG->dirroot . '/curriculum/lib/filtering/simpleselect.php');
         require_once($CFG->dirroot . '/curriculum/lib/filtering/clusterselect.php');
         require_once($CFG->dirroot . '/curriculum/lib/filtering/userprofilematch.php');
+
+        require_once($CFG->dirroot .'/curriculum/lib/student.class.php');
+        require_once($CFG->dirroot .'/curriculum/lib/user.class.php');
     }
 
     /**
@@ -320,13 +324,14 @@ class sitewide_time_summary_report extends table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @uses none
-     * @param none
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
 
         // Create all requested User Profile field filters
         $upfilter =
@@ -756,6 +761,10 @@ class sitewide_time_summary_report extends table_report {
             }
             $sql .= "
             WHERE {$permissions_filter} ";
+        }
+
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= ' AND crlmu.inactive = 0';
         }
 
         //error_log("sitewide_time_summary_report.php::get_report_sql($columns); sql={$sql}");

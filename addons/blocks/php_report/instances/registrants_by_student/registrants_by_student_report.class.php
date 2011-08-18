@@ -69,6 +69,9 @@ class registrants_by_student_report extends table_report {
     function require_dependencies() {
         global $CFG;
 
+        //needed to define CURMAN_DIRLOCATION
+        require_once($CFG->dirroot . '/curriculum/config.php');
+
         //needed for constants that define db tables
         require_once($CFG->dirroot . '/curriculum/lib/user.class.php');
         require_once($CFG->dirroot . '/curriculum/lib/student.class.php');
@@ -91,7 +94,7 @@ class registrants_by_student_report extends table_report {
         // Add "after dates if available
         if (!empty($show_after[0]['value'])) {
             $after = (!empty($date_range_after[0]['value']))
-                   ? $this->userdate($date_range_after[0]['value'])
+                   ? $this->userdate($date_range_after[0]['value'], get_string('strftimedaydate'))
                    : get_string('anytime',$this->lang_file);
         } else {
             $after = get_string('anytime',$this->lang_file);
@@ -100,7 +103,7 @@ class registrants_by_student_report extends table_report {
         // Add "after dates if available
         if (!empty($show_before[0]['value'])) {
             $before = (!empty($date_range_before[0]['value']))
-                    ? $this->userdate($date_range_before[0]['value'])
+                    ? $this->userdate($date_range_before[0]['value'], get_string('strftimedaydate'))
                     : get_string('anytime',$this->lang_file);
         } else {
             $before = get_string('anytime',$this->lang_file);
@@ -132,11 +135,14 @@ class registrants_by_student_report extends table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
 
         return array(new generalized_filter_entry('showdr', 'clsenr', 'enrolmenttime',
                                                   get_string('filter_date_range', $this->lang_file),
@@ -224,7 +230,7 @@ class registrants_by_student_report extends table_report {
     function transform_record($record, $export_format) {
         $record->r_startdate = ($record->r_startdate == 0)
                                ? get_string('na', $this->lang_file)
-                               : $this->userdate($record->r_startdate);
+                               : $this->userdate($record->r_startdate, get_string('strftimedaydate'));
 
         return $record;
     }
@@ -284,6 +290,10 @@ class registrants_by_student_report extends table_report {
                     ON crs.id = cls.courseid
                 WHERE {$permissions_filter}
                ";
+
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= ' AND usr.inactive = 0';
+        }
 
         return $sql;
     }

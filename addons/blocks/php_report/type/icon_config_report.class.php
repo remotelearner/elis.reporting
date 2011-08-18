@@ -112,10 +112,10 @@ abstract class icon_config_report extends icon_report {
 
     }
 
-    function init_filter($id) {
+    function init_filter($id, $init_data = true) {
         global $CFG;
-        if (!isset($this->filter) && $filters = $this->get_filters()) {
-            $dynamic_report_filter_url = $CFG->wwwroot . '/blocks/php_report/dynamicreport.php?id=' . $id . '&filterchange=1';
+        if (!isset($this->filter) && $filters = $this->get_filters($init_data)) {
+            $dynamic_report_filter_url = $CFG->wwwroot . '/blocks/php_report/dynamicreport.php?id=' . $id;
             // Need to have a different php_report_default_capable_filtering that is smarter
             $this->filter = new php_report_config_capable_filtering($filters, $dynamic_report_filter_url, null, $id, $this->get_report_shortname());
         }
@@ -129,7 +129,7 @@ abstract class icon_config_report extends icon_report {
      */
     function init_all($id, $parameter_data = NULL) {
         //initialize filters
-        $this->init_filter($id);
+        $this->init_filter($id, false);
 
         //initialize icons to the empty set
         $this->icons = array();
@@ -141,13 +141,16 @@ abstract class icon_config_report extends icon_report {
     function main($sort = '', $dir = '', $page = 0, $perpage = 20, $download = '', $id = 0) {
         global $CFG;
 
+        $this->display_header();
+        
         $this->init_all($id);
 
         //calculate actual report data
         $this->calculate_data();
 
         echo $this->display_icons($id);
-
+        
+        $this->display_footer();
     }
 
 }

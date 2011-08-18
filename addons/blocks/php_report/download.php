@@ -25,7 +25,6 @@
  */
 
 require_once('../../config.php');
-require_once($CFG->dirroot . '/blocks/php_report/php_report_block.class.php');
 require_once($CFG->dirroot . '/blocks/php_report/lib/filtering.php');
 
 //report instance id can be a block instance id
@@ -34,26 +33,23 @@ $id = required_param('id', PARAM_CLEAN);
 //selected export format
 $format = required_param('format', PARAM_CLEAN);
 
-//load reporting-related dependencies, including the report definition
-php_report_block::require_dependencies($id);
 //load filter classes
 php_report_filtering_require_dependencies();
 
-if (isset($SESSION->php_reports[$id])) {
-    $classname = get_class($SESSION->php_reports[$id]->inner_report);
-    $report = new $classname($id);
-    //permissions checking
-    if ($report->can_view_report()) {
-        $report->init_all($id);
-        //require any necessary report-specific dependencies
-        $report->require_dependencies();
-        //initiate download using sql query without paging
+$report = php_report::get_default_instance($id);
+    
+//permissions checking
+if ($report->can_view_report()) {
+    //NOTE: this is fast because it will not populate filter values
+    $report->init_all($id);
+    //require any necessary report-specific dependencies
+    $report->require_dependencies();
 
-        //make sure we have enough resources to export our report
-        php_report::allocate_extra_resources();
+    //make sure we have enough resources to export our report
+    php_report::allocate_extra_resources();
 
-        $report->download($format, $report->get_complete_sql_query(false));
-    }
+    //initiate download using sql query without paging
+    $report->download($format, $report->get_complete_sql_query(false));
 }
 
 ?>

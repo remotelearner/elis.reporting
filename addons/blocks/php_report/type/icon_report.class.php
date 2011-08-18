@@ -220,7 +220,7 @@ abstract class icon_report extends php_report {
      */
     function init_all($id, $parameter_data = NULL) {
         //initialize filters
-        $this->init_filter($id);
+        $this->init_filter($id, false);
 
         //initialize icons to the empty set
         $this->icons = array();
@@ -232,13 +232,16 @@ abstract class icon_report extends php_report {
     function main($sort = '', $dir = '', $page = 0, $perpage = 20, $download = '', $id = 0) {
         global $CFG;
 
+        $this->display_header();
+        
         $this->init_all($id);
 
         //calculate actual report data
         $this->calculate_data();
 
         echo $this->display_icons($id);
-
+        
+        $this->display_footer();
     }
 
 }

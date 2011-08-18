@@ -66,29 +66,32 @@ class course_usage_summary_report extends icon_config_report {
     function require_dependencies() {
         global $CFG;
 
+        //needed to define CURMAN_DIRLOCATION
+        require_once($CFG->dirroot . '/curriculum/config.php');
+
         //needed for constants that define db tables
         require_once(CURMAN_DIRLOCATION . '/lib/track.class.php');
 
     }
 
     /**
-     * Specifies the SQL statement used to obtain the value of one bar in a series
+     * Specifies available report filters
+     * (empty by default but can be implemented by child class)
      *
-     * @param   string   $series_key  The key that identifies a series
-     * @param   numeric  $point_key   The x-coordinate whose bar height we are calculating
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
      *
-     * @return  string                The SQL query to run to calculate the bar height
-     *                                (query should return a single value)
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         global $CURMAN;
 
         //Get allowed curriculum list by capability
         $cms = array();
         $contexts = get_contexts_by_capability_for_user('curriculum', $this->access_capability, $this->userid);
-        $cms_objects = curriculum_get_listing('name', 'ASC', 0, 0, '', '', $contexts);
+        $cms_objects = curriculum_get_listing_recordset('name', 'ASC', 0, 0, '', '', $contexts);
         if (!empty($cms_objects)) {
-            foreach ($cms_objects as $curriculum) {
+            while ($curriculum = rs_fetch_next_record($cms_objects)) {
                 $cms[$curriculum->id] = $curriculum->name;
             }
         }
@@ -250,6 +253,10 @@ class course_usage_summary_report extends icon_config_report {
         $sql = "SELECT COUNT(enrol.id)
                             FROM {$CURMAN->db->prefix_table(STUTABLE)} enrol";
 
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= " JOIN {$CURMAN->db->prefix_table(USRTABLE)} usr ON usr.id = enrol.userid";
+        }
+
         //get permissions sql bit
         if($this->need_permissions()) {
             $permissions_filter = ' AND '.$this->get_permissions();
@@ -277,6 +284,10 @@ class course_usage_summary_report extends icon_config_report {
                     AND enrol.completestatusid = {$status}";
         } else {
             $sql .= " WHERE enrol.completestatusid = {$status}";
+        }
+
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= ' AND usr.inactive = 0';
         }
 
         $num_courses = 0;
@@ -349,6 +360,10 @@ class course_usage_summary_report extends icon_config_report {
                        AND log.action = 'view'";
         }
 
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= ' AND usr.inactive = 0';
+        }
+
         $resource = 0;
 
         if($resource_record = get_field_sql($sql)) {
@@ -376,6 +391,10 @@ class course_usage_summary_report extends icon_config_report {
                     JOIN {$CFG->prefix}forum_posts post
                       ON disc.id = post.discussion";
 
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= " JOIN {$CURMAN->db->prefix_table(USRTABLE)} usr ON usr.id = enrol.userid";
+        }
+
         //get permissions sql bit
         if($this->need_permissions()) {
             $permissions_filter = ' AND '.$this->get_permissions();
@@ -383,9 +402,10 @@ class course_usage_summary_report extends icon_config_report {
             $permissions_filter = '';
         }
 
+        $where = array();
         if ($this->filter_statement ||
             $this->need_permissions()) {
-           $sql .= " WHERE EXISTS (
+            $where[] = "EXISTS (
                         SELECT *
                         FROM {$CURMAN->db->prefix_table(STUTABLE)} enrol2
                         JOIN {$CURMAN->db->prefix_table(CLSTABLE)} class
@@ -399,6 +419,12 @@ class course_usage_summary_report extends icon_config_report {
                          {$this->filter_statement}
                          {$permissions_filter}
                    ) ";
+        }
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $where[] = 'usr.inactive = 0';
+        }
+        if (!empty($where)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
         }
 
         $tot_disc_posts = 0;
@@ -466,6 +492,10 @@ class course_usage_summary_report extends icon_config_report {
                       ON enrol.classid = class.id
                      AND enrol.userid = clsgrd.userid";
 
+            if (empty($CURMAN->config->legacy_show_inactive_users)) {
+                $sql .= " JOIN {$CURMAN->db->prefix_table(USRTABLE)} usr ON usr.id = enrol.userid";
+            }
+
             //get permissions sql bit
             if($this->need_permissions()) {
                 $permissions_filter = ' AND '.$this->get_permissions();
@@ -492,6 +522,10 @@ class course_usage_summary_report extends icon_config_report {
                          )";
             } else {
                 $sql .= " WHERE d.fieldid = {$field_id}";
+            }
+
+            if (empty($CURMAN->config->legacy_show_inactive_users)) {
+                $sql .= ' AND usr.inactive = 0';
             }
 
             $avg_crs_grd = 0;
@@ -561,6 +595,10 @@ class course_usage_summary_report extends icon_config_report {
                         AND gg.finalgrade IS NOT NULL";
         }
 
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= ' AND usr.inactive = 0';
+        }
+
         $tot_quizzes = 0;
 
         if($tot_quizzes_record = get_field_sql($sql)) {
@@ -627,6 +665,10 @@ class course_usage_summary_report extends icon_config_report {
                         AND gg.finalgrade IS NOT NULL";
         }
 
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= ' AND usr.inactive = 0';
+        }
+
         $tot_assignments = 0;
 
         if($tot_assignments_record = get_field_sql($sql)) {
@@ -686,6 +728,10 @@ class course_usage_summary_report extends icon_config_report {
             $sql .= " WHERE activity.courseid != {$siteid}";
         }
 
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= ' AND usr.inactive = 0';
+        }
+
         $total_course_time = 0;
 
         if($total_course_time_record = get_record_sql($sql)) {
@@ -741,6 +787,10 @@ class course_usage_summary_report extends icon_config_report {
         $sql = "SELECT AVG(enrol.grade) as avg_grade
                 FROM {$CURMAN->db->prefix_table(STUTABLE)} enrol";
 
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= " JOIN {$CURMAN->db->prefix_table(USRTABLE)} usr ON usr.id = enrol.userid";
+        }
+
                 //get permissions sql bit
         if($this->need_permissions()) {
             $permissions_filter = ' AND '.$this->get_permissions();
@@ -769,6 +819,10 @@ class course_usage_summary_report extends icon_config_report {
             $sql .= " WHERE enrol.locked = '1'";
         }
 
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= ' AND usr.inactive = 0';
+        }
+
         $avg_crs_grd = 0;
 
         if($avg_crs_grd_record = get_record_sql($sql)) {
@@ -792,6 +846,10 @@ class course_usage_summary_report extends icon_config_report {
         $sql = "SELECT COUNT(enrol.id) as num_students
                             FROM {$CURMAN->db->prefix_table(STUTABLE)} enrol";
 
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $sql .= " JOIN {$CURMAN->db->prefix_table(USRTABLE)} usr ON usr.id = enrol.userid";
+        }
+
         //get permissions sql bit
         if($this->need_permissions()) {
             //$sql .= " JOIN {$CURMAN->db->prefix_table(CURASSTABLE)} curass
@@ -803,9 +861,10 @@ class course_usage_summary_report extends icon_config_report {
             $permissions_filter = '';
         }
 
+        $where = array();
         if ($this->filter_statement ||
             $this->need_permissions()) {
-            $sql .= " WHERE EXISTS (
+            $where[] = "EXISTS (
                          SELECT *
                          FROM {$CURMAN->db->prefix_table(STUTABLE)} enrol2
                          JOIN {$CURMAN->db->prefix_table(CLSTABLE)} class
@@ -819,6 +878,12 @@ class course_usage_summary_report extends icon_config_report {
                          {$this->filter_statement}
                          {$permissions_filter}
                      )";
+        }
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $where[] = ' usr.inactive = 0';
+        }
+        if (!empty($where)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
         }
 
         $num_students = 0;

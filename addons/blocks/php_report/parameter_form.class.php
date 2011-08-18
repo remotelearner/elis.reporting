@@ -52,6 +52,9 @@ class parameter_form extends moodleform {
 
         $mform =& $this->_form;
 
+        //used to persist the display of the cancel button when re-displaying
+        $mform->addElement('hidden', 'showcancel');
+
         if (isset($this->_customdata['filterobject'])) {
             //filter object was passed, because the report uses filters
             $filter_object = $this->_customdata['filterobject'];
@@ -80,20 +83,17 @@ class parameter_form extends moodleform {
                 }
             }
 
-            // Check the session override flag
-            $show_cancel = false;
-            if (isset($SESSION->php_report_default_override[$filter_object->reportname])) {
-                $show_cancel = TRUE;
-            }
-
             //add the necessary buttons
             $elements = array();
 
             $elements[] = $mform->createElement('submit', 'reset_form', get_string('button_reset_form', 'block_php_report'));
             $elements[] = $mform->createElement('submit', 'save_defaults', get_string('button_save_defaults', 'block_php_report'));
-            if ($show_cancel) {
+
+            //determine whether to display the cancel button (not shown on first view of this form)
+            if (!empty($this->_customdata['showcancel'])) {
                 $elements[] = $mform->createElement('cancel', 'canceltest', get_string('button_cancel', 'block_php_report'));
             }
+
             $elements[] = $mform->createElement('submit', 'show_report', get_string('button_show_report', 'block_php_report'));
             $mform->addGroup($elements, 'buttonar', '', array(' '), false);
         } else {

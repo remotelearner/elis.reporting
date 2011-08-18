@@ -163,9 +163,9 @@ class curricula_report extends table_report {
      * @return  table_report_column array  The list of report columns
      */
     function get_columns() {
-        return array(new table_report_column('crlmu.username AS username',
-                                              get_string('column_username', 'rlreport_curricula'),
-                                             'username',
+        return array(new table_report_column('crlmu.idnumber AS idnumber',
+                                              get_string('column_idnumber', 'rlreport_curricula'),
+                                             'idnumber',
                                              'left',
                                               false),
                      new table_report_column("u.lastname AS lastname",
@@ -214,7 +214,7 @@ class curricula_report extends table_report {
      * @return  string  String specifying columns, and directions if necessary
      */
     function get_static_sort_columns() {
-        return sql_concat('u.lastname',"' '",'u.firstname', "' '", 'u.username');
+        return sql_concat('u.lastname',"' '",'u.firstname', "' '", 'u.idnumber');
     }
     /**
      * Specifies a field to sort by default
@@ -243,10 +243,10 @@ class curricula_report extends table_report {
      */
      function get_grouping_fields() {
          return array(new table_report_grouping('user_id',
-                                                 sql_concat('u.lastname',"' '",'u.firstname', "' '", 'u.username'),
-                                                 get_string('grouping_username', 'rlreport_curricula').': ',
+                                                 sql_concat('u.lastname',"' '",'u.firstname', "' '", 'u.idnumber'),
+                                                 get_string('grouping_idnumber', 'rlreport_curricula').': ',
                                                 'ASC',
-                                                 array("crlmu.username AS username","u.lastname AS lastname"),
+                                                 array("crlmu.idnumber AS idnumber","u.lastname AS lastname"),
                                                 'below')
                      );
      }
@@ -259,7 +259,7 @@ class curricula_report extends table_report {
      *                  or '' if no grouping should be used
      */
     function get_report_sql_groups() {
-        return 'username,
+        return 'idnumber,
                 cc.id';
     }
 
@@ -307,8 +307,15 @@ class curricula_report extends table_report {
                        JOIN {$CFG->prefix}user u
                          ON u.idnumber = crlmu.idnumber";
 
+        $where = array();
         if ($permissions_filter != '') {
-            $report_sql .= " WHERE {$permissions_filter}";
+            $where[] = $permissions_filter;
+        }
+        if (empty($CURMAN->config->legacy_show_inactive_users)) {
+            $where[] = 'crlmu.inactive = 0';
+        }
+        if (!empty($where)) {
+            $report_sql .= ' WHERE ' . implode(' AND ', $where);
         }
 
         return $report_sql;

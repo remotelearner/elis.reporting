@@ -71,6 +71,9 @@ class resource_usage_report extends table_report {
     function require_dependencies() {
         global $CFG;
 
+        //needed to define CURMAN_DIRLOCATION
+        require_once($CFG->dirroot . '/curriculum/config.php');
+
         //needed for options filters
         //require_once($CFG->dirroot . '/curriculum/lib/filtering/lib.php');
         //require_once($CFG->dirroot . '/curriculum/lib/filtering/clusterselect.php');
@@ -87,11 +90,14 @@ class resource_usage_report extends table_report {
 
     /**
      * Specifies available report filters
-     * (allow for filtering on various user and cluster-related fields)
+     * (empty by default but can be implemented by child class)
      *
-     * @return  generalized_filter_entry array  The list of available filters
+     * @param   boolean  $init_data  If true, signal the report to load the
+     *                               actual content of the filter objects
+     *
+     * @return  array                The list of available filters
      */
-    function get_filters() {
+    function get_filters($init_data = true) {
         $segchoices = array();
         $filters = array();
 

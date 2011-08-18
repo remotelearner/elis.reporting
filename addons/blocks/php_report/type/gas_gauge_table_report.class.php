@@ -79,6 +79,22 @@ abstract class gas_gauge_table_report extends table_report {
     var $static_max_value = 100;
 
     /**
+     * Contructor.
+     *
+     * @param  string    $id                  An identifier for this report
+     * @param  int|NULL  $userid              Id of the Moodle user who this report is being
+     *                                        for
+     * @param  int       $execution_mode      The mode in which this report is being executed
+     *
+     * @retrn none
+     */
+    function gas_gauge_table_report($id, $userid = NULL, $execution_mode = php_report::EXECUTION_MODE_INTERACTIVE) {
+        parent::__construct($id, $userid, $execution_mode);
+
+        $this->gas_gauge_page = optional_param('gas_gauge_page', 0, PARAM_INT);
+    }
+
+    /**
      * Specifies a WHERE / AND clause that acts on the supplied secondary filter
      *
      * @param   string  $sql         The SQL statement to be filtered
@@ -432,22 +448,6 @@ abstract class gas_gauge_table_report extends table_report {
      * ------------------------------------------------------ */
 
     /**
-     * Specifies the attributes of this report object that
-     * should be persisted after the report is generated
-     */
-    function get_persistent_attributes() {
-        //include all gas gauge values
-        $result = array('gas_gauge_page',
-                        'gas_gauge_page_value',
-                        'gas_gauge_value',
-                        'gas_gauge_max_value'
-                    );
-
-        //include anything else specified by the parent class
-        return array_merge($result, parent::get_persistent_attributes());
-    }
-
-    /**
      * Sets up the secondary filterings based on the report definitions
      *
      * @param   string  $url               The URL used to dynamically reload this report
@@ -477,13 +477,13 @@ abstract class gas_gauge_table_report extends table_report {
     /**
      * Initialize the filter object
      */
-    function init_filter($id) {
+    function init_filter($id, $init_data = true) {
         global $CFG;
 
         if (!isset($this->filter)) {
             //set up our filtering, including references to any secondary filterings involved
-            $dynamic_report_filter_url = $CFG->wwwroot . '/blocks/php_report/dynamicreport.php?id=' . $id . '&filterchange=1';
-            $this->filter = new php_report_default_capable_filtering($this->get_filters(), $dynamic_report_filter_url, null, $id, $this->get_report_shortname(), $this->get_secondary_filterings($dynamic_report_filter_url, $id, $this->get_report_shortname()));
+            $dynamic_report_filter_url = $CFG->wwwroot . '/blocks/php_report/dynamicreport.php?id=' . $id;
+            $this->filter = new php_report_default_capable_filtering($this->get_filters($init_data), $dynamic_report_filter_url, null, $id, $this->get_report_shortname(), $this->get_secondary_filterings($dynamic_report_filter_url, $id, $this->get_report_shortname()));
         }
     }
 
@@ -516,7 +516,7 @@ abstract class gas_gauge_table_report extends table_report {
      */
     function init_all($id, $parameter_data = NULL) {
         //set up filters
-        $this->init_filter($id);
+        $this->init_filter($id, false);
 
         //use the provided data to set gas-gauge parameters
         if ($parameter_data !== NULL) {
@@ -563,14 +563,15 @@ abstract class gas_gauge_table_report extends table_report {
     function main($sort = '', $dir = '', $page = 0, $perpage = 0, $download = '', $id = 0) {
         global $CFG;
 
+        $this->display_header();
+
         $this->set_paging_and_sorting($page, $perpage, $sort, $dir);
 
         $this->init_all($id);
 
         $this->render_report($id);
-
-        //persist type-specific fields in sessionized report
-        $this->persist_state();
+        
+        $this->display_footer();
     }
 
     /**

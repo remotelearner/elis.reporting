@@ -140,33 +140,6 @@ abstract class table_report extends php_report {
 /////////////////////////////////////////////////////////////////////
 
     /**
-     * Specifies the attributes of this report object that
-     * should be persisted after the report is generated
-     */
-    function get_persistent_attributes() {
-        //persist the summary row
-        return array('column_based_summary_row');
-    }
-
-    /**
-     * Persist the state of this report
-     */
-    function persist_state() {
-        global $SESSION;
-
-        //get all applicable attributes
-        $persistent_attributes = $this->get_persistent_attributes();
-        if (!empty($persistent_attributes)) {
-            //find all corresponding values and persist them
-            foreach ($persistent_attributes as $persistent_attribute) {
-                if (isset($this->$persistent_attribute)) {
-                    $SESSION->php_reports[$this->id]->inner_report->$persistent_attribute = $this->$persistent_attribute;
-                }
-            }
-        }
-    }
-
-    /**
      * Set the array of report columns.
      *
      * @param   string        $id                   The column ID.
@@ -1242,7 +1215,7 @@ abstract class table_report extends php_report {
      */
     function init_all($id, $parameter_data = NULL) {
         //initialize filters
-        $this->init_filter($id);
+        $this->init_filter($id, false);
 
         //use the provided data to set gas-gauge parameters
         if ($parameter_data !== NULL) {
@@ -1279,14 +1252,15 @@ abstract class table_report extends php_report {
     function main($sort = '', $dir = '', $page = 0, $perpage = 0, $download = '', $id = 0) {
         global $CFG;
 
+        $this->display_header();
+
         $this->set_paging_and_sorting($page, $perpage, $sort, $dir);
 
         $this->init_all($id);
 
         $this->render_report($id);
 
-        //persist type-specific fields in sessionized report
-        $this->persist_state();
+        $this->display_footer();
     }
 
     /**
@@ -1388,7 +1362,6 @@ abstract class table_report extends php_report {
                 $result .= " {$conditional_symbol} ({$sql_filter})";
             }
         }
-
         return $result;
     }
 
@@ -1414,10 +1387,17 @@ abstract class table_report extends php_report {
         }
 
         if(!empty($this->sort) && !empty($this->dir)) {
+            $sort = $this->sort;
+            $lowercase_sort = strtolower($sort);
+            $as_position = strpos($lowercase_sort, ' as ');
+            if($as_position !== false) {
+                $sort = substr($sort, $as_position + strlen(' as '));
+            }
+
             if(!empty($result)) {
-                $result .= ", {$this->sort} {$this->dir}";
+                $result .= ", {$sort} {$this->dir}";
             } else {
-                $result = " ORDER BY {$this->sort} {$this->dir}";
+                $result = " ORDER BY {$sort} {$this->dir}";
             }
         }
 
@@ -1579,7 +1559,7 @@ abstract class table_report extends php_report {
             $this->data = array();
             $this->summary = array();
         }
-
+        
         $max_page = ceil($this->numrecs / $this->perpage) - 1;
         if ($this->page == $max_page) {
 
@@ -1687,9 +1667,9 @@ abstract class table_report extends php_report {
      *
      * @param  int|string  $id  The id of the report
      */
-    function render_report($id=0) {
+    function render_report($id=0) {        
         $this->get_data();
-
+        
         //header link for configuring default parameters
         echo $this->get_config_header();
         echo $this->print_header($id);
@@ -2080,6 +2060,42 @@ function print_table($table, $return=false) {
      */
     function get_grouping_summary_row_colour() {
         return array(255, 255, 255);
+    }
+
+    /**
+     * Calculates and returns a message to display that
+     * informs users on how recent their data is
+     *
+     * @param   int|string     $id  The current report block id
+     *
+     * @return  string         HTML for a form with the display text and a reset button
+     */
+    function get_lastload_display($id = 0) {
+        global $CFG, $USER;
+
+        $format = '%A, %B %e, %l:%M:%S %P';
+
+        $element_id = 'refresh_report';
+        if(!empty($id)) {
+            $element_id .= '_' . $id;
+        }
+
+        $timezone = 99;
+        if(isset($USER->timezone)) {
+            $timezone = $USER->timezone;
+        }
+        $lastload = time();
+        $a = userdate($lastload, $format, $timezone);
+
+        return '<form id="' . $element_id . '" action="' . $CFG->wwwroot . '/blocks/php_report/dynamicreport.php" ' .
+               'onsubmit="start_throbber(); return true;" >' .
+               '<input type="hidden" id="id" name="id" value="' . $id . '" />' .
+               '<input type="hidden" id="page" name="page" value="' . $this->page . '" />' .
+               '<input type="hidden" id="sort" name="sort" value="' . $this->sort . '" />' .
+               '<input type="hidden" id="dir" name="dir" value="' . $this->dir . '" />' .
+               '<p align="center" class="php_report_caching_info">' . get_string('infocurrent', 'block_php_report', $a) . '<br/>' .
+               '<input id="' . $element_id . '" type="submit" value="Refresh"/>' . '</p>' .
+               '</form>';
     }
 }
 

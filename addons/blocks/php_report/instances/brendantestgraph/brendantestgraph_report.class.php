@@ -73,6 +73,16 @@ class brendantestgraph_report extends graph_report {
         //this is just a sample, so disable it
         return FALSE;
     }
+
+    /**
+     * Specifies whether this report definition has one or more
+     * filters defined for it
+     *
+     * @return  boolean  true if one more more filters are defined, or false if none are
+     */
+    function has_filters() {
+        return false;
+    }
 }
 
 ?>
