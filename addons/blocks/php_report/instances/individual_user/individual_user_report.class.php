@@ -387,11 +387,13 @@ class individual_user_report extends table_report {
         // Figure out the number of completed credits for the curriculum
         $numcomplete_subquery = "SELECT sum(innerclsenr.credits)
                                  FROM {$CURMAN->db->prefix_table(STUTABLE)} innerclsenr
-                                 LEFT JOIN {$CURMAN->db->prefix_table(CURASSTABLE)} innercurass
-                                     ON innercurass.userid = innerclsenr.userid
+                                 JOIN {$CURMAN->db->prefix_table(CLSTABLE)} innercls ON innercls.id = innerclsenr.classid
+                                 JOIN {$CURMAN->db->prefix_table(CRSTABLE)} innercrs ON innercls.courseid = innercrs.id
+                                 JOIN {$CURMAN->db->prefix_table(CURCRSTABLE)} innercurcrs
+                                     ON innercurcrs.courseid = innercrs.id
                                  WHERE innerclsenr.userid = usr.id
-                                     AND innercurass.curriculumid = cur.id
-                                     AND innerclsenr.classid = cls.id
+                                     AND innercurcrs.curriculumid = cur.id
+                                     AND innerclsenr.completestatusid = " . STUSTATUS_PASSED . "
                                 ";
 
         // Main query
