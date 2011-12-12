@@ -1,7 +1,7 @@
 <?php
 /**
  * ELIS(TM): Enterprise Learning Intelligence Suite
- * Copyright (C) 2008-2010 Remote-Learner.net Inc (http://www.remote-learner.net)
+ * Copyright (C) 2008-2011 Remote-Learner.net Inc (http://www.remote-learner.net)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,38 +17,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * @package    elis
- * @subpackage curriculummanagement
+ * @subpackage core
  * @author     Remote-Learner.net Inc
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL
- * @copyright  (C) 2008-2010 Remote Learner.net Inc http://www.remote-learner.net
+ * @copyright  (C) 2008-2011 Remote Learner.net Inc http://www.remote-learner.net
  *
  */
 
-/**
- * Base class for all the main report types, such as
- * tabular reports and graphs
- */
-class block_php_report extends block_base {
-
-    /**
-     * Initialize the report block settings
-     */
-    function init() {
-        $this->title = get_string('title', 'block_php_report');
-
-        $this->version = 2011042800;
-        $this->revision = '1.9.2.2';
-    }
-
-    /**
-     * Determine where the block is allowed
-     * @return array
-     */
-    function applicable_formats() {
-        return array('all' => false,
-                     'nowhere' => true);
-    }
-
-}
-
-?>
+$tasks = array(
+    array(
+        'callfile' => '/elis/core/lib/workflow.class.php',
+        'callfunction' => array('_workflow_instance','cleanup'),
+        'minute' => '*',
+        'hour' => '1',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '0'
+    )
+);

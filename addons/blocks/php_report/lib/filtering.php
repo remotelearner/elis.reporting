@@ -232,7 +232,11 @@ function php_report_filtering_get_user_preferences($report_shortname) {
             if ($key != 'report') {
                 //error_log("/blocks/php_report/lib/filtering.php::php_report_filtering_get_user_preferences($report_shortname, $force_persistent) over-riding filter values with URL param: {$key}={$val}");
                 $SESSION->php_report_default_params[$reportid.'/'.$key] = $val;
-                set_user_preferences(array($reportid.'/'.$key,$val)); // let's save URL params as persistent to avoid random session craziness issues
+                // let's save URL params as persistent to avoid random session craziness issues
+                // ELIS-3353 Use the correct parameter formatting and report a debugging message if the values are not saved.
+                if (!set_user_preferences(array($reportid.'/'.$key => $val))) {
+                    debugging('Could not save user preferences for:  '.$reportid.'/'.$key.' => '.$val, DEBUG_DEVELOPER);
+                }
             }
         }
         $user_prefs = $SESSION->php_report_default_params;

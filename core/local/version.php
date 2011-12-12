@@ -24,31 +24,6 @@
  *
  */
 
-/**
- * Base class for all the main report types, such as
- * tabular reports and graphs
- */
-class block_php_report extends block_base {
-
-    /**
-     * Initialize the report block settings
-     */
-    function init() {
-        $this->title = get_string('title', 'block_php_report');
-
-        $this->version = 2011042800;
-        $this->revision = '1.9.2.2';
-    }
-
-    /**
-     * Determine where the block is allowed
-     * @return array
-     */
-    function applicable_formats() {
-        return array('all' => false,
-                     'nowhere' => true);
-    }
-
-}
+$local_version = 2011033100;
 
 ?>

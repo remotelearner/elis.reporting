@@ -24,31 +24,34 @@
  *
  */
 
-/**
- * Base class for all the main report types, such as
- * tabular reports and graphs
- */
-class block_php_report extends block_base {
-
-    /**
-     * Initialize the report block settings
-     */
-    function init() {
-        $this->title = get_string('title', 'block_php_report');
-
-        $this->version = 2011042800;
-        $this->revision = '1.9.2.2';
+function xmldb_local_upgrade($oldversion) {
+    global $CFG, $db;
+ 
+    $result = true;
+ 
+    if ($result && $oldversion < 2010110800) {
+        $table = new XMLDBTable('user_info_data');
+        
+        $index = new XMLDBIndex('useridx');
+        $index->setAttributes(XMLDB_INDEX_NOTUNIQUE, array('userid'));
+        $result = $result && add_index($table, $index);
+        
+        $index = new XMLDBIndex('fieldidx');
+        $index->setAttributes(XMLDB_INDEX_NOTUNIQUE, array('fieldid'));
+        $result = $result && add_index($table, $index);
     }
 
-    /**
-     * Determine where the block is allowed
-     * @return array
-     */
-    function applicable_formats() {
-        return array('all' => false,
-                     'nowhere' => true);
+    if ($result && $oldversion < 2011033100) {
+        // Changing size of field 'name' on 'user_preferences' from 50 to 255
+        $table = new XMLDBTable('user_preferences');
+        $field = new XMLDBField('name');
+        $field->setAttributes(XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null, null, null, 'userid');
+
+        // Launch change of precision for field name
+        $result = $result && change_field_precision($table, $field);
     }
 
+    return $result;
 }
 
 ?>
