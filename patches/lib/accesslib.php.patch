@@ -1,7 +1,7 @@
 diff --git a/lib/accesslib.php b/lib/accesslib.php
 old mode 100755
 new mode 100644
-index 7d00069..aae4e33
+index 0ab769e..f5c085b
 --- a/lib/accesslib.php
 +++ b/lib/accesslib.php
 @@ -171,6 +171,944 @@ $ACCESS = array(); // cache of caps for cron user switching and has_capability f

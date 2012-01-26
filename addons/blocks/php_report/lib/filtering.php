@@ -1,7 +1,7 @@
 <?php
 /**
  * ELIS(TM): Enterprise Learning Intelligence Suite
- * Copyright (C) 2008-2011 Remote-Learner.net Inc (http://www.remote-learner.net)
+ * Copyright (C) 2008-2012 Remote Learner.net Inc http://www.remote-learner.net
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
  * @subpackage curriculummanagement
  * @author     Remote-Learner.net Inc
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL
- * @copyright  (C) 2008-2011 Remote Learner.net Inc http://www.remote-learner.net
+ * @copyright  (C) 2008-2012 Remote Learner.net Inc http://www.remote-learner.net
  *
  */
 
@@ -232,11 +232,7 @@ function php_report_filtering_get_user_preferences($report_shortname) {
             if ($key != 'report') {
                 //error_log("/blocks/php_report/lib/filtering.php::php_report_filtering_get_user_preferences($report_shortname, $force_persistent) over-riding filter values with URL param: {$key}={$val}");
                 $SESSION->php_report_default_params[$reportid.'/'.$key] = $val;
-                // let's save URL params as persistent to avoid random session craziness issues
-                // ELIS-3353 Use the correct parameter formatting and report a debugging message if the values are not saved.
-                if (!set_user_preferences(array($reportid.'/'.$key => $val))) {
-                    debugging('Could not save user preferences for:  '.$reportid.'/'.$key.' => '.$val, DEBUG_DEVELOPER);
-                }
+                set_user_preferences(array($reportid.'/'.$key,$val)); // let's save URL params as persistent to avoid random session craziness issues
             }
         }
         $user_prefs = $SESSION->php_report_default_params;
