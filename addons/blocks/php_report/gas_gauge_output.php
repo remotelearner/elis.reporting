@@ -162,7 +162,7 @@ function php_report_gas_gauge_draw_labels(&$chart, $radius, $total, $num_section
  */
 function php_report_gas_gauge_draw_arrow(&$chart, $radius, $value, $total) {
     //calculate angle based on proportion
-    $line_theta = $value / $total * PHP_REPORT_GAS_GAUGE_PI;
+    $line_theta = $total ? ($value / $total * PHP_REPORT_GAS_GAUGE_PI) : 0;
     $effective_theta = $line_theta - PHP_REPORT_GAS_GAUGE_PI / 2;
     
     //calculate absolute coordinates

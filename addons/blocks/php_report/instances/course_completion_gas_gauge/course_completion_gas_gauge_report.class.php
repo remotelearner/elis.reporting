@@ -171,7 +171,7 @@ class course_completion_gas_gauge_report extends gas_gauge_table_report {
         //query that calculates total number completed
         $num_complete_sql = $this->get_report_sql('COUNT(ccg.id)');
         //query that calculates average final course grade
-        $avg_score_sql = $this->get_report_sql('AVG(gg.finalgrade)');
+        $avg_score_sql = $this->get_report_sql('AVG(stu.grade)');
 
         //CM class idnumber
         $class_heading = get_string('column_class', 'rlreport_course_completion_gas_gauge');
@@ -228,8 +228,10 @@ class course_completion_gas_gauge_report extends gas_gauge_table_report {
         $choices = array(
                 $inactive_yes_label => array(0, 1),
                 $inactive_no_label => array(0));
-        $inactive_options = array('choices' => $choices,
-                                  'numeric' => true);
+        $inactive_options = array('choices'  => $choices,
+                                  'default'  => array(0),
+                                  //'anyvalue' => array(0, 1),
+                                  'numeric'  => true);
         // Need help text
         $inactive_options['help'] = array('course_completion_gas_gauge_inactive_help',
                                     get_string('filter_inactive_help', 'rlreport_course_completion_gas_gauge'),
@@ -279,7 +281,7 @@ class course_completion_gas_gauge_report extends gas_gauge_table_report {
         $page_value_condition = $this->get_page_value_condition('crs.id');
 
         return "SELECT {$columns}, u.lastname, COUNT(cc.id) AS numcompletionelements,
-                u.id AS cmuserid, gi.grademax
+                u.id AS cmuserid, gi.grademax, stu.grade AS elisgrade
                 FROM
                 {$CURMAN->db->prefix_table(USRTABLE)} u
                 JOIN {$CURMAN->db->prefix_table(STUTABLE)} stu
@@ -348,10 +350,15 @@ class course_completion_gas_gauge_report extends gas_gauge_table_report {
         $record->numcompleted = get_string('completed_tally', 'rlreport_course_completion_gas_gauge', $record);
 
         //format the Moodle gradebook course score
-        if ($record->score === NULL || empty($record->grademax)) {
-            $record->score = get_string('na', 'rlreport_course_completion_gas_gauge');
+        // ELIS-4439: now using ELIS grade!
+        //if (empty($record->score) || empty($record->grademax)) {
+        if (!empty($record->elisgrade)) {
+            $record->score = cm_display_grade($record->elisgrade);
+            if (is_numeric($record->score) && $export_format != php_report::$EXPORT_FORMAT_CSV) {
+                $record->score .= get_string('percent_symbol', 'rlreport_course_completion_gas_gauge');
+            }
         } else {
-            $record->score = number_format($record->score/$record->grademax*100, 1);
+            $record->score = get_string('na', 'rlreport_course_completion_gas_gauge');
         }
 
         return $record;

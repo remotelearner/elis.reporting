@@ -7,6 +7,7 @@ $string['date_format'] = '%%m/%%d/%%Y';
 $string['displayname'] = 'Non-starter Report';
 $string['filter_date_range'] = 'Select the Date range for the report:';
 $string['filter_role_choose'] = 'Roles to show on the report:';
+$string['filtered_by'] = 'Filtered by: ';
 $string['grouping_classid'] = 'Class ID: ';
 $string['grouping_coursename'] = 'Course Name: ';
 $string['grouping_curriculum'] = 'Curriculum: ';

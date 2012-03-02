@@ -34,6 +34,9 @@ class course_progress_summary_report extends table_report {
      */
     var $startdate = 0;
     var $enddate = 0;
+
+    var $field_default = array();
+
     /**
      * Specifies whether the current report is available
      * (a.k.a. any the CM system is installed)
@@ -110,9 +113,8 @@ class course_progress_summary_report extends table_report {
         $user_preferences = php_report_filtering_get_user_preferences($this->get_report_shortname());
         $report_index = 'php_report_'.$this->get_report_shortname().'/field'.$this->id;
 
-        if (isset($user_preferences[$report_index])) {
-            $default_fieldid_list = unserialize(base64_decode($user_preferences[$report_index]));
-        } else {
+        if (!isset($user_preferences[$report_index]) ||
+            ($default_fieldid_list = @unserialize(base64_decode($user_preferences[$report_index]))) === false) {
             $default_fieldid_list = array();
         }
         $field_list = array('fieldids' => $default_fieldid_list);
@@ -156,7 +158,7 @@ class course_progress_summary_report extends table_report {
         $filter_params = php_report_filtering_get_active_filter_values($this->get_report_shortname(),'field'.$this->get_report_shortname(),$this->filter);
 
         // Unserialize value of filter params to get field ids array
-        $filter_params = unserialize(base64_decode($filter_params[0]['value']));
+        $filter_params = @unserialize(base64_decode($filter_params[0]['value']));
 
         // Loop through these additional parameters - new columns, will  have to eventually pass the table etc...
         if (isset($filter_params) && is_array($filter_params)) {
@@ -166,6 +168,15 @@ class course_progress_summary_report extends table_report {
 
             foreach ($filter_params as $custom_course_id) {
                 $custom_course_field = new field($custom_course_id);
+
+                // Obtain custom field default values IFF set
+                if (($default_value = $custom_course_field->get_default())
+                    !== false) {
+                    // save in array { record_field => default_value }
+                    $this->field_default['custom_data_'. $custom_course_id] =
+                              $default_value;
+                }
+
                 //Find matching course field
                 $course_field_title = $fields[$custom_course_id]->name;
 
@@ -353,7 +364,6 @@ class course_progress_summary_report extends table_report {
      */
     function transform_record($record, $export_format) {
 
-
         $record->associatedcluster = empty($record->associatedcluster) ? get_string('no', 'rlreport_course_progress_summary') :
                                                                          get_string('yes', 'rlreport_course_progress_summary');
 
@@ -381,6 +391,13 @@ class course_progress_summary_report extends table_report {
             $record->studentspassing = get_string('na','rlreport_course_progress_summary');
         }
 
+        // Default values for custom fields IF not set
+        foreach ($this->field_default as $key => $value) {
+            //error_log("CPSR:transform_record(), checking default for {$key} => {$value}");
+            if (!isset($record->$key)) {
+                $record->$key = $value;
+            }
+        }
         return $record;
     }
 

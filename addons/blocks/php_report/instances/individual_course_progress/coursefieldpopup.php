@@ -53,10 +53,10 @@ $fields = $fields ? $fields : array();
 
 //Unserialize fieldidlist to check against field list
 if (isset($fieldidlist)) {
-    $fieldidlist = unserialize(base64_decode($fieldidlist));
+    $fieldidlist = @unserialize(base64_decode($fieldidlist));
 }
 if (isset($fieldnamelist)) {
-    $fieldnamelist = unserialize(base64_decode($fieldnamelist));
+    $fieldnamelist = @unserialize(base64_decode($fieldnamelist));
 }
 
 $categories = field_category::get_for_context_level($context);

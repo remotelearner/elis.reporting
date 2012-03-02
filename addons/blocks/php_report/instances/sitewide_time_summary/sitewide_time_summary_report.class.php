@@ -486,123 +486,148 @@ class sitewide_time_summary_report extends table_report {
             $record->gcslabel = ($export_format == php_report::$EXPORT_FORMAT_PDF)
                                 ? "\xa0\xa0\xa0\xa0\xa0\xa0\xa0" : '';
             $totaltime = 0;
-            $sql = "SELECT SUM(duration) as sum
-                   FROM {$CFG->prefix}etl_user_activity
-                   WHERE courseid = {$record->mcourse_id}
+            if (!empty($record->mcourse_id)) {
+                $sql = "SELECT SUM(duration) as sum
+                        FROM {$CFG->prefix}etl_user_activity
+                       WHERE courseid = {$record->mcourse_id}
                          AND userid = {$record->user_id}
                          AND hour >= {$this->startdate}";
-            if (!empty($this->enddate)) {
-                $sql .= " AND hour <= {$this->enddate}";
-            }
-            //print_object($sql);
-            $trecs = get_records_sql($sql);
-            if (!empty($trecs)) {
-                //$this->err_dump($trecs, '$trecs');
-                foreach ($trecs as $rec) {
-                    if (!empty($rec->sum)) {
-                        $totaltime += $rec->sum;
+                if (!empty($this->enddate)) {
+                    $sql .= " AND hour <= {$this->enddate}";
+                }
+                //print_object($sql);
+                $trecs = get_records_sql($sql);
+                if (!empty($trecs)) {
+                    //$this->err_dump($trecs, '$trecs');
+                    foreach ($trecs as $rec) {
+                        if (!empty($rec->sum)) {
+                            $totaltime += $rec->sum;
+                        }
                     }
                 }
             }
         } else if ($this->segment == 'years') {
             $totaltime = 0;
-            $startdate = make_timestamp($record->year);
-            foreach($this->months as $month) {
-                $enddate = $this->add_month($startdate); // TBD: $this->next_month($startdate);
-                $sql = "SELECT SUM(duration) as sum
-                     FROM {$CFG->prefix}etl_user_activity
-                     WHERE courseid = {$record->mcourse_id}
-                           AND userid = {$record->user_id}
-                           AND hour >= {$startdate}
-                           AND hour < {$enddate}";
-                //print_object($sql);
-                $trecs = get_records_sql($sql);
-                $curtime = 0;
-                if (!empty($trecs)) {
-                    //$this->err_dump($trecs, '$trecs');
-                    foreach ($trecs as $rec) {
-                        if (!empty($rec->sum)) {
-                            $curtime += $rec->sum;
+            if (!empty($record->mcourse_id)) {
+                $startdate = make_timestamp($record->year);
+                foreach($this->months as $month) {
+                    $enddate = $this->add_month($startdate); // TBD: $this->next_month($startdate);
+                    $sql = "SELECT SUM(duration) as sum
+                              FROM {$CFG->prefix}etl_user_activity
+                             WHERE courseid = {$record->mcourse_id}
+                               AND userid = {$record->user_id}
+                               AND hour >= {$startdate}
+                               AND hour < {$enddate}";
+                    //print_object($sql);
+                    $trecs = get_records_sql($sql);
+                    $curtime = 0;
+                    if (!empty($trecs)) {
+                        //$this->err_dump($trecs, '$trecs');
+                        foreach ($trecs as $rec) {
+                            if (!empty($rec->sum)) {
+                                $curtime += $rec->sum;
+                            }
                         }
                     }
+                    $record->{$month} = $this->format_time(
+                                            get_string('time_format',
+                                                $this->langfile), $curtime);
+                    $totaltime += $curtime;
+                    $startdate = $enddate;
                 }
-                $record->{$month} = $this->format_time(
-                                        get_string('time_format',
-                                                   $this->langfile), $curtime);
-                $totaltime += $curtime;
-                $startdate = $enddate;
             }
         } else if ($this->segment == 'months') {
             $totaltime = 0;
-            $startdate = make_timestamp($record->year, $record->month);
-            $nextmonth = $this->add_month($startdate);
-            foreach($this->weeks as $wk) {
-                $enddate = ($wk == 'week4') ? $nextmonth // extra days in month
-                                            : $this->add_week($startdate);
-                $sql = "SELECT SUM(duration) as sum
-                     FROM {$CFG->prefix}etl_user_activity
-                     WHERE courseid = {$record->mcourse_id}
-                           AND userid = {$record->user_id}
-                           AND hour >= {$startdate}
-                           AND hour < {$enddate}";
-                //print_object($sql);
-                $trecs = get_records_sql($sql);
-                $curtime = 0;
-                if (!empty($trecs)) {
-                    //$this->err_dump($trecs, '$trecs');
-                    foreach ($trecs as $rec) {
-                        if (!empty($rec->sum)) {
-                            $curtime += $rec->sum;
+            if (!empty($record->mcourse_id)) {
+                $startdate = make_timestamp($record->year, $record->month);
+                $nextmonth = $this->add_month($startdate);
+                foreach($this->weeks as $wk) {
+                    $enddate = ($wk == 'week4') ? $nextmonth // extra days in month
+                                                : $this->add_week($startdate);
+                    $sql = "SELECT SUM(duration) as sum
+                              FROM {$CFG->prefix}etl_user_activity
+                             WHERE courseid = {$record->mcourse_id}
+                               AND userid = {$record->user_id}
+                               AND hour >= {$startdate}
+                               AND hour < {$enddate}";
+                    //print_object($sql);
+                    $trecs = get_records_sql($sql);
+                    $curtime = 0;
+                    if (!empty($trecs)) {
+                        //$this->err_dump($trecs, '$trecs');
+                        foreach ($trecs as $rec) {
+                            if (!empty($rec->sum)) {
+                                $curtime += $rec->sum;
+                            }
                         }
                     }
+                    $totaltime += $curtime;
+                    $record->{$wk} = $this->format_time(
+                                         get_string('time_format',
+                                                     $this->langfile),
+                                         $curtime);
+                    $startdate = $enddate;
                 }
-                $totaltime += $curtime;
-                $record->{$wk} = $this->format_time(
-                                     get_string('time_format', $this->langfile),
-                                     $curtime);
-                $startdate = $enddate;
+                if (!empty($record->month))
+                {
+                    $sparam = new stdClass;
+                    $sparam->int_month = $record->month;
+                    $sparam->str_month = get_string($this->months[$record->month - 1],
+                                                    $this->langfile);
+                    $record->month = get_string('month_format', $this->langfile,
+                                                $sparam);
+                }
             }
-            $sparam = new stdClass;
-            $sparam->int_month = $record->month;
-            $sparam->str_month = get_string($this->months[$record->month - 1],
-                                            $this->langfile);
-            $record->month = get_string('month_format', $this->langfile,
-                                        $sparam);
         } else { // 'weeks'
             $totaltime = 0;
-            $startdate = make_timestamp($record->year);
-            while (date('w', $startdate) != 0) { // off a day depending on TZ
-                // week must start on a sunday
-                $startdate = $this->add_day($startdate); // TBD: $this->next_day($startdate);
-            }
-            for ($i = 1; $i < $record->week; ++$i) {
-                $startdate = $this->add_week($startdate);
-            }
-            foreach($this->wkdays as $day) {
-                $enddate = $this->add_day($startdate); // TBD: $this->next_day($startdate);
-                $sql = "SELECT SUM(duration) as sum
-                     FROM {$CFG->prefix}etl_user_activity
-                     WHERE courseid = {$record->mcourse_id}
-                           AND userid = {$record->user_id}
-                           AND hour >= {$startdate}
-                           AND hour < {$enddate}";
-                //print_object($sql);
-                $trecs = get_records_sql($sql);
-                $curtime = 0;
-                if (!empty($trecs)) {
-                    //$this->err_dump($trecs, '$trecs');
-                    foreach ($trecs as $rec) {
-                        if (!empty($rec->sum)) {
-                            $curtime += $rec->sum;
+            if (!empty($record->mcourse_id)) {
+                $startdate = make_timestamp($record->year);
+                while (date('w', $startdate) != 0) { // off a day depending on TZ
+                    // week must start on a sunday
+                    $startdate = $this->add_day($startdate); // TBD: $this->next_day($startdate);
+                }
+                for ($i = 1; $i < $record->week; ++$i) {
+                    $startdate = $this->add_week($startdate);
+                }
+                foreach($this->wkdays as $day) {
+                    $enddate = $this->add_day($startdate); // TBD: $this->next_day($startdate);
+                    $sql = "SELECT SUM(duration) as sum
+                              FROM {$CFG->prefix}etl_user_activity
+                             WHERE courseid = {$record->mcourse_id}
+                               AND userid = {$record->user_id}
+                               AND hour >= {$startdate}
+                               AND hour < {$enddate}";
+                    //print_object($sql);
+                    $trecs = get_records_sql($sql);
+                    $curtime = 0;
+                    if (!empty($trecs)) {
+                        //$this->err_dump($trecs, '$trecs');
+                        foreach ($trecs as $rec) {
+                            if (!empty($rec->sum)) {
+                                $curtime += $rec->sum;
+                            }
                         }
                     }
+                    $totaltime += $curtime;
+                    $record->{$day} = $this->format_time(get_string('time_format',
+                                                             $this->langfile),
+                                                         $curtime);
+                    $startdate = $enddate;
                 }
-                $totaltime += $curtime;
-                $record->{$day} = $this->format_time(get_string('time_format',
-                                                         $this->langfile),
-                                                     $curtime);
-                $startdate = $enddate;
             }
+        }
+
+        if (empty($record->year)) {
+            $record->year = get_string('no_time_logged', $this->langfile,
+                                strtolower(get_string('seg_years', $this->langfile)));
+        }
+        if (empty($record->year) || empty($record->month)) {
+            $record->month = get_string('no_time_logged', $this->langfile,
+                                 strtolower(get_string('seg_months', $this->langfile)));
+        }
+        if (empty($record->year) || empty($record->week)) {
+            $record->week = get_string('no_time_logged', $this->langfile,
+                                strtolower(get_string('seg_weeks', $this->langfile)));
         }
 
         if ($this->xformrec != $record) {
@@ -662,12 +687,14 @@ class sitewide_time_summary_report extends table_report {
                     $record->{$wk} = '';
                     $prevfield = $wk;
                 }
-                $sparam = new stdClass;
-                $sparam->int_month = $record->month;
-                $sparam->str_month = get_string($this->months[$record->month-1],
-                                                $this->langfile);
-                $record->month = get_string('month_format', $this->langfile,
-                                            $sparam);
+                if (!empty($record->month)) {
+                    $sparam = new stdClass;
+                    $sparam->int_month = $record->month;
+                    $sparam->str_month = get_string($this->months[$record->month-1],
+                                                    $this->langfile);
+                    $record->month = get_string('month_format', $this->langfile,
+                                                $sparam);
+                }
                 break;
             case 'weeks':
                 foreach($this->wkdays as $day) {
@@ -678,6 +705,18 @@ class sitewide_time_summary_report extends table_report {
             default:
                 error_log("sitewide_time_summmary_report::transform_group_column_summary() - illegal segment: {$this->segment}");
 
+        }
+        if (empty($record->year)) {
+            $record->year = get_string('no_time_logged', $this->langfile,
+                                strtolower(get_string('seg_years', $this->langfile)));
+        }
+        if (empty($record->year) || empty($record->month)) {
+            $record->month = get_string('no_time_logged', $this->langfile,
+                                 strtolower(get_string('seg_months', $this->langfile)));
+        }
+        if (empty($record->year) || empty($record->week)) {
+            $record->week = get_string('no_time_logged', $this->langfile,
+                                strtolower(get_string('seg_weeks', $this->langfile)));
         }
         if (!empty($prevfield)) {
             $record->{$prevfield} = get_string('grouping_totaltime',
@@ -705,7 +744,7 @@ class sitewide_time_summary_report extends table_report {
      * @return  string  The report's main sql statement
      */
     function get_report_sql($columns) {
-        global $CFG; //, $CURMAN;
+        global $CFG, $CURMAN;
 
         $this->get_filter_values(); // populate class filter values
 
@@ -731,37 +770,22 @@ class sitewide_time_summary_report extends table_report {
         }
 
         $sql .= "
-            JOIN {$CFG->prefix}crlm_course crs ON cls.courseid = crs.id
-            JOIN {$CFG->prefix}crlm_class_moodle clsm ON cls.id = clsm.classid";
+                 JOIN {$CFG->prefix}crlm_course crs ON cls.courseid = crs.id
+            LEFT JOIN {$CFG->prefix}crlm_class_moodle clsm ON cls.id = clsm.classid";
 
-        if ($this->segment == 'noseg') {
+        if ($this->segment != 'noseg') {
             $sql .= "
-            WHERE EXISTS (
-                SELECT id
-                FROM mdl_etl_user_activity etlua
-                WHERE etlua.courseid = clsm.moodlecourseid
-                AND etlua.userid = u.id ";
+            LEFT JOIN {$CFG->prefix}etl_user_activity etlua
+              ON etlua.courseid = clsm.moodlecourseid AND etlua.userid = u.id ";
             if (!empty($this->startdate)) {
                 $sql .= "AND etlua.hour >= {$this->startdate} ";
             }
             if (!empty($this->enddate)) {
                 $sql .= "AND etlua.hour < {$this->enddate}";
             }
-            $sql .= " )
-            AND {$permissions_filter} ";
-        } else {
-            $sql .= "
-            JOIN {$CFG->prefix}etl_user_activity etlua
-                ON etlua.courseid = clsm.moodlecourseid AND etlua.userid = u.id ";
-            if (!empty($this->startdate)) {
-                $sql .= "AND etlua.hour >= {$this->startdate} ";
-            }
-            if (!empty($this->enddate)) {
-                $sql .= "AND etlua.hour < {$this->enddate}";
-            }
-            $sql .= "
-            WHERE {$permissions_filter} ";
         }
+        $sql .= "
+            WHERE {$permissions_filter} ";
 
         if (empty($CURMAN->config->legacy_show_inactive_users)) {
             $sql .= ' AND crlmu.inactive = 0';

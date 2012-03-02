@@ -574,6 +574,11 @@ abstract class gas_gauge_table_report extends table_report {
         $this->display_footer();
     }
 
+    function get_config_header() {
+        $this->set_gas_gauge_page($this->gas_gauge_page);
+        return parent::get_config_header();
+    }
+
     /**
      * Generates and renders the report, including the header and footer
      *
@@ -583,7 +588,7 @@ abstract class gas_gauge_table_report extends table_report {
         $this->get_data();
 
         //header link for configuring default parameters
-        echo $this->get_config_header();
+        echo self::get_config_header();
 
         //header, including the gas-gauge paging and header text
         echo $this->print_gas_gauge_header($id);

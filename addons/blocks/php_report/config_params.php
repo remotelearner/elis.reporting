@@ -72,7 +72,16 @@ $parameter_form->set_data(array('id' => $report_shortname, 'showcancel' => $show
 //update form with current settings
 php_report_filtering_update_form($report_shortname, $parameter_form);
 
-if ($data = $parameter_form->get_data()) {
+//determine if we are resetting the form
+$reset_form = optional_param('reset_form', '', PARAM_CLEAN);
+
+if (!empty($reset_form)) {
+    //reset case - do not use get_data because it performs validation
+    $data = data_submitted();
+
+    //store form settings as report-specific user preferences
+    php_report_filtering_reset_form($data, $filter_object, $report_shortname, $parameter_form);
+} else if ($data = $parameter_form->get_data()) {
     //NOTE: this has to be checked after get_data in this case
     //because get_data calls definition_after_data, which adds the cancel button
     if ($parameter_form->is_cancelled()) {
@@ -82,10 +91,6 @@ if ($data = $parameter_form->get_data()) {
     } else if (isset($data->save_defaults)) {
         //store form settings as report-specific user preferences
         php_report_filtering_save_preferences($data, $filter_object, $report_shortname);
-    } else if (isset($data->reset_form)) {
-        //store form settings as report-specific user preferences
-        php_report_filtering_reset_form($data, $filter_object, $report_shortname, $parameter_form);
-
     } else if (isset($data->show_report)) {
         //store temporary preferences
         php_report_filtering_save_preferences($data, $filter_object, $report_shortname, true);

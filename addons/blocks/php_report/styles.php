@@ -559,6 +559,29 @@
 }
 
 /*
+ User class completion styling
+ */
+.user_class_completion .php_report_title {
+    display: none;
+}
+
+.user_class_completion .php_report_header_label {
+    width: 0%;
+}
+
+.user_class_completion .php_report_header_value {
+    width: 100%;
+}
+
+.user_class_completion .php_report_header_value {
+    background-color: #DBE5F1;
+    font-weight: bold;
+    padding: 0.5%;
+    width: 99%;
+    text-align: center;
+}
+
+/*
  Styling for the scheduling interface
  */
 

@@ -486,8 +486,9 @@ class course_completion_by_cluster_report extends table_report {
             //format the grade value
             $record->grade = get_string(
                         ($export_format == php_report::$EXPORT_FORMAT_CSV)
-                        ? 'formatted_grade_csv' : 'formatted_grade',
-                        'rlreport_course_completion_by_cluster', $record->grade);
+                            ? 'formatted_grade_csv' : 'formatted_grade',
+                        'rlreport_course_completion_by_cluster',
+                        cm_display_grade($record->grade));
         }
 
         if (isset($record->numcomplete)) {

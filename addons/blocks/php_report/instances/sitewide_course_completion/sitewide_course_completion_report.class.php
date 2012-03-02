@@ -346,14 +346,17 @@ class sitewide_course_completion_report extends table_report {
                                    $this->lang_file);
         }
 
-        if (!empty($record->r_total_grade)) {
-            $record->r_total_grade = round($record->r_total_grade);
-            if ($export_format != php_report::$EXPORT_FORMAT_CSV) {
-                $record->r_total_grade .= get_string('percent_symbol',
-                                                     $this->lang_file);
-            }
+        // ELIS-4439: now using ELIS grade!
+        //if (!empty($record->r_total_grade)) {
+        //    $record->r_total_grade = cm_display_grade($record->r_total_grade);
+        //} else
+        if (!empty($record->elisgrade)) {
+            $record->r_total_grade = cm_display_grade($record->elisgrade);
         } else {
             $record->r_total_grade = get_string('na', $this->lang_file);
+        }
+        if (is_numeric($record->r_total_grade) && $export_format != php_report::$EXPORT_FORMAT_CSV) {
+            $record->r_total_grade .= get_string('percent_symbol', $this->lang_file);
         }
 
         $record->r_status = ($record->r_status == 1)
@@ -385,7 +388,7 @@ class sitewide_course_completion_report extends table_report {
 
         $sql = "SELECT {$columns},
                     cur.id IS NULL AS isnull,
-                    usr.firstname as firstname
+                    usr.firstname as firstname, clsenr.grade AS elisgrade
                 FROM {$CURMAN->db->prefix_table(CLSTABLE)} cls
                 JOIN {$CURMAN->db->prefix_table(CRSTABLE)} crs
                     ON crs.id = cls.courseid

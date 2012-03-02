@@ -64,6 +64,9 @@ function php_report_filtering_update_form($report_name, &$parameter_form) {
             if (strpos($key, $prefix) === 0) {
                 //preference contains the form field name and UI value
                 $field_name = substr($key, strlen($prefix));
+                if (is_array($value)) {
+                    $value = serialize($value);
+                }
                 $parameter_form->set_data(array($field_name => $value), true);
             }
 
@@ -170,6 +173,9 @@ function php_report_filtering_resolve_submitted_preferences($filter_object, $per
 
                 //store all related values as preferences
                 foreach ($per_filter_data[$field_shortname] as $key => $value) {
+                    if (is_string($value) && strpos($value, 'a:') === 0) {
+                        $value = unserialize($value);
+                    }
                     $preferences['php_report_' . $report_shortname . '/' . $key] = $value;
                     if (array_key_exists($key,$all_options)) {
                         unset($all_options[$key]);
@@ -232,16 +238,22 @@ function php_report_filtering_get_user_preferences($report_shortname) {
             if ($key != 'report') {
                 //error_log("/blocks/php_report/lib/filtering.php::php_report_filtering_get_user_preferences($report_shortname, $force_persistent) over-riding filter values with URL param: {$key}={$val}");
                 $SESSION->php_report_default_params[$reportid.'/'.$key] = $val;
-                set_user_preferences(array($reportid.'/'.$key,$val)); // let's save URL params as persistent to avoid random session craziness issues
+                // let's save URL params as persistent to avoid random session craziness issues
+                // ELIS-3353 Use the correct parameter formatting and report a debugging message if the values are not saved.
+                if (!set_user_preferences(array($reportid.'/'.$key => $val))) {
+                    debugging('Could not save user preferences for:  '.$reportid.'/'.$key.' => '.$val, DEBUG_DEVELOPER);
+                }
+
+                //flag this report as having custom parameters set up
+                php_report_filtering_flag_report_as_overridden($report_shortname);
             }
         }
-        $user_prefs = $SESSION->php_report_default_params;
-    }
-
-    if (!empty($SESSION->php_report_default_override[$report_shortname])) {
+        $user_prefs = array_merge($user_prefs, $SESSION->php_report_default_params);
+    } else if (!empty($SESSION->php_report_default_override[$report_shortname])) {
         // using temporary overrides (which contain last known state of form
         $user_prefs = $SESSION->php_report_default_params;
     }
+
     return $user_prefs;
 }
 
@@ -383,9 +395,27 @@ function php_report_filtering_reset_form($form_data, $filter_object, $report_nam
     // Get current filters and reset them
     $reset_array = array();
     $per_filter_data = php_report_filtering_get_per_filter_data($filter_object, $form_data);
-    foreach ($per_filter_data as $filter_data) {
-        foreach ($filter_data as $key => $value) {
-            $reset_array[$key] = '';
+
+    //loop through the filters, and get them to specify their defaults
+    foreach ($per_filter_data as $filter_name => $filter_data) {
+        //obtain the instance
+        // TBD: Checking with empty() should not be necessary. This is a workaround.
+        if (!empty($filter_object->_fields[$filter_name])) {
+            //corresponds to a normal filter
+            $filter_instance = $filter_object->_fields[$filter_name];
+            //append the default values to our list
+            $default_values = $filter_instance->get_default_values($filter_data);
+            $reset_array = array_merge($reset_array, $default_values);
+        } else {
+            //check secondary filterings
+            foreach ($filter_object->secondary_filterings as $secondary) {
+                if (!empty($secondary->_fields[$filter_name])) {
+                    $filter_instance = $secondary->_fields[$filter_name];
+                    //append the default values to our list
+                    $default_values = $filter_instance->get_default_values($filter_data);
+                    $reset_array = array_merge($reset_array, $default_values);
+                }
+            }
         }
     }
 
@@ -504,7 +534,8 @@ class php_report_default_capable_filtering extends generalized_filtering {
             $preference_prefix = 'php_report_' . $this->reportname;
 
             //is preference related to this report?
-            if (strpos($parts[0], $preference_prefix) === 0) {
+            //match exactly in case one report name prefixes another
+            if ($parts[0] == $preference_prefix) {
                 $element_name = $parts[1];
 
                 //calculate the group name

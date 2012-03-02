@@ -19,6 +19,7 @@ $string['filter_inactive_help'] = 'selecting custom course fields';
 $string['filter_inactive_yes'] = 'Yes';
 $string['filter_inactive_no'] = 'No';
 $string['na'] = 'N/A';
+$string['percent_symbol'] = '%%';
 $string['status_complete'] = 'complete';
 $string['status_incomplete'] = 'incomplete';
 

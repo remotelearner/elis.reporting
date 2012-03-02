@@ -50,6 +50,7 @@ abstract class php_report {
     const CATEGORY_PARTICIPATION = 'participation_reports';
     const CATEGORY_USER = 'user_reports';
     const CATEGORY_OUTCOMES = 'outcomes_reports';
+    const CATEGORY_NODISPLAY = null;
 
     const EXECUTION_MODE_INTERACTIVE = 0;
     const EXECUTION_MODE_SCHEDULED = 1;
@@ -63,6 +64,8 @@ abstract class php_report {
 
     //capability that should be checked for permissions, based on execution mode
     var $access_capability;
+
+    protected $gas_gauge_page = 0;
 
     /**
      * PHP report constructor
@@ -361,10 +364,30 @@ abstract class php_report {
         }
     }
 
+    function set_gas_gauge_page($gas_gauge_page) {
+        $this->gas_gauge_page = $gas_gauge_page;
+    }
+
+    function get_gas_gauge_page() {
+        return $this->gas_gauge_page;
+    }
+
     /**
      * Specifies the config header for this report
      *
      * @return  string  The HTML content of the config header
+     * @uses $CFG
+     */
+    function get_config_url() {
+        global $CFG;
+        return $CFG->wwwroot . '/blocks/php_report/config_params.php?id=' . $this->id . '&showcancel=1';
+    }
+
+    /**
+     * Specifies the config header for this report
+     *
+     * @return  string  The HTML content of the config header
+     * @uses $CFG
      */
     function get_config_header() {
         global $CFG;
@@ -397,12 +420,13 @@ abstract class php_report {
 
         //also assert that at least one export format is available
         $export_formats = $this->get_export_formats();
-        if (count($export_formats) == 0) {
-            $show_schedule_report_link = false;
-        }
+        $show_export_icons = count($export_formats) > 0;
 
-        if (!$show_config_filters_link && !$show_schedule_report_link) {
-            //no filter link or schedule link to show
+        //determine if some icon needs to be displayed
+        $show_something = $show_config_filters_link || $show_schedule_report_link || $show_export_icons;
+
+        if (!$show_something) {
+            //no filter, export or schedule links to show
             return '';
         }
 
@@ -412,7 +436,7 @@ abstract class php_report {
             //link for configuring parameters
             $alt_text = get_string('config_params', 'block_php_report');
             //link to parameter screen with cancel button
-            $config_params_url = $CFG->wwwroot . '/blocks/php_report/config_params.php?id=' . $this->id . '&showcancel=1';
+            $config_params_url = $this->get_config_url();
             $result .= '<a href="' . $config_params_url . '">' .
                        '<img src="' . $CFG->wwwroot . '/blocks/php_report/pix/configuration.png" border="0" width="16" height="16" ' .
                        'alt="' . $alt_text . '" title="' . $alt_text . '">' .
@@ -421,15 +445,16 @@ abstract class php_report {
 
         //loop through the possible export formats and add the export links if
         //they are supported by the report
+        //todo: remove the use of get_allowable_export_formats
         $export_formats = $this->get_export_formats();
         $allowable_export_formats = php_report::get_allowable_export_formats();
         foreach ($allowable_export_formats as $allowable_export_format) {
             if (in_array($allowable_export_format, $export_formats)) {
                 $alt_text = get_string('export_link_' . $allowable_export_format, 'block_php_report');
                 // add hatch character at end of url to force loading in a new page (checked in associate.class.js)
-                $export_url = $CFG->wwwroot . '/blocks/php_report/download.php?id=' . $this->id . '&format=' . $allowable_export_format . '#';
+                $export_url = $CFG->wwwroot . '/blocks/php_report/download.php?id=' . $this->id . '&gas_gauge_page=' . $this->gas_gauge_page . '&format=' . $allowable_export_format . '#';
                 $icon = mimeinfo('icon', "foo.$allowable_export_format");
-                $result .= '<a href="' . $export_url . '">' .
+                $result .= '<a href="' . $export_url . '" target="_blank">' .
                            '<img src="' . $CFG->pixpath . '/f/' . $icon . '" border="0" width="16" height="16" ' .
                            'alt="' . $alt_text . '" title="' . $alt_text . '">' .
                            '</a>&nbsp;&nbsp;';
@@ -484,6 +509,7 @@ abstract class php_report {
      * @return  string  The HTML content of the display
      */
     function get_interactive_filter_display() {
+        //todo: determine if this method is even needed anymore
         $result = '';
 
         if (isset($this->filter) && $this->allow_interactive_filters()) {
@@ -718,6 +744,50 @@ abstract class php_report {
 
         //perform the formatting
         return userdate($date, $format, $timezone, $fixday);
+    }
+
+    /**
+     * Return class start/end date-time
+     *
+     * @param  object  $pmclass      The pmclass who's date/time we desire
+     * @param  string  $start_or_end Either 'start' or 'end'
+     * @param  string  $fmt          Optional format string
+     * @return string  The formatted date/time string.
+     */
+    function cmclassdate($cmclass, $start_or_end = 'start', $fmt = '') {
+        if (empty($cmclass)) {
+            return '-';
+        }
+        if ($start_or_end != 'start' && $start_or_end != 'end') {
+            error_log("php_report_base.php::cmclassdate() coding error - invalid value for arg#2: start_or_end = '{$start_or_end}'");
+            return '';
+        }
+
+        $date     = $start_or_end .'date';
+        $hour     = $start_or_end .'timehour';
+        $minute   = $start_or_end .'timeminute';
+        $datetime = $cmclass->{$date};
+
+        //the hour as a number, or 25 if N/A
+        $hour_number = $cmclass->{$hour};
+        //the minute as a number, or 61 if N/A
+        $minute_number = $cmclass->{$minute};
+
+        //deremine whether time is set
+        $time_set = $hour_number < 25 && $minute_number < 61;
+
+        if (empty($datetime)) {
+            $fmt = get_string('strftimetime', 'langconfig');
+        } else if (!$time_set) {
+            //we don't have a time, so just use the date format
+            $fmt = get_string('strftimedaydate', 'langconfig');
+        }
+
+        if ($time_set) {
+            $datetime += $cmclass->{$hour} * HOURSECS;
+            $datetime += $cmclass->{$minute} * MINSECS;
+        }
+        return $this->userdate($datetime, $fmt);
     }
 
     /**

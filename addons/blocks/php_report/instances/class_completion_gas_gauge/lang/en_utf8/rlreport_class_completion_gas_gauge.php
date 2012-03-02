@@ -18,5 +18,7 @@ $string['filter_inactive_yes'] = 'Yes';
 $string['filter_inactive_no'] = 'No';
 
 $string['na'] = 'N/A';
+$string['percent_symbol'] = '%%';
+$string['selectclass'] = 'Select a class';
 $string['status_complete'] = 'Complete';
 $string['status_incomplete'] = 'Incomplete';

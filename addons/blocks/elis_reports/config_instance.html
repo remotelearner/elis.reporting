@@ -28,6 +28,7 @@ if($handle = opendir($CFG->dirroot . '/blocks/php_report/instances')) {
     }
 }
 
+unset($categories[null]);  // Hide nodisplay reports.
 foreach ($categories as $category => $reports) {
     echo '<h3>'.get_string($category, 'block_php_report').'</h3>';
     foreach ($reports as $report) {

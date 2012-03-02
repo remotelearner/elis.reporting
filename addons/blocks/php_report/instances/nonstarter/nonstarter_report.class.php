@@ -52,6 +52,33 @@ class nonstarter_report extends table_report {
     }
 
     /**
+     * Required user profile fields (keys)
+     * Note: can override default labels with values (leave empty for default)
+     * Eg. 'lastname' =>  'Surname', ...
+     */
+    var $_fields =
+        array(
+            'fullname',
+            'lastname',
+            'firstname',
+            'idnumber',
+            'email',
+            'city',
+            'country',
+            'username',
+            'lang',
+            'confirmed',
+            //'courserole',
+            //'coursecat',
+            //'systemrole',
+            'firstaccess',
+            'lastaccess',
+            'lastlogin',
+            'timemodified',
+            'auth'
+        );
+
+    /**
      * Specifies whether the current report is available
      * (a.k.a. any the CM system is installed)
      *
@@ -95,6 +122,8 @@ class nonstarter_report extends table_report {
 
         require_once($CFG->dirroot .'/curriculum/lib/student.class.php');
         require_once($CFG->dirroot .'/curriculum/lib/user.class.php');
+
+        require_once($CFG->dirroot . '/curriculum/lib/filtering/userprofilematch.php');
     }
 
     /**
@@ -186,6 +215,9 @@ class nonstarter_report extends table_report {
         //$this->err_dump($start, '$datefilter(2)_sdt');
         //$this->err_dump($end, '$datefilter(2)_edt');
         //error_log("nonstarter::get_filter_values() ... startdate={$this->startdate} enddate={$this->enddate}");
+
+        // Fetch filter values for the user profile filter
+        $this->up_headers = $this->upfilter->get_set_filter_values($this->get_report_shortname(), $this->filter, $this->_fields);
     }
 
     /**
@@ -206,7 +238,44 @@ class nonstarter_report extends table_report {
         $header_obj->label = get_string('report_heading', 'rlreport_nonstarter');
         $header_obj->value = "{$sdate} - {$edate}";
         $header_obj->css_identifier = '';
-        return array($header_obj);
+        $header_array = $this->get_user_profile_header();
+        $header_array = array_merge(array($header_obj),$header_array);
+        return $header_array;
+    }
+
+     /**
+     * Specifies the user profile headers
+     *
+     * @uses none
+     * @param none
+     * @return array - header entires
+     */
+    function get_user_profile_header() {
+
+        // Check for $this->up_headers
+        if (!empty($this->up_headers) && is_array($this->up_headers)) {
+            $up_headers = array();
+            $count = 0;
+
+            $init_label = get_string('filtered_by', 'rlreport_nonstarter');
+            $chars = strlen(get_string('filtered_by', 'rlreport_nonstarter'));
+            $next_label = print_spacer($chars, 10, false, true);
+            foreach($this->up_headers as $up_header) {
+                $header_obj = new stdClass;
+                if ($count == 0) {
+                    $label = $init_label;
+                } else {
+                    // Pad the label with spaces
+                    $label = $next_label;
+                }
+                $header_obj->label = $label;
+                $header_obj->value = $up_header['value'];
+                $header_obj->css_identifier = '';
+                $up_headers[] = $header_obj;
+                $count++;
+            }
+        }
+        return $up_headers;
     }
 
     /*
@@ -226,22 +295,46 @@ class nonstarter_report extends table_report {
      * @return  array                The list of available filters
      */
     function get_filters($init_data = true) {
+
+        // Create all requested User Profile field filters
+        $upfilter =
+            new generalized_filter_userprofilematch(
+                'nsu',
+                get_string('filter_user_match', 'rlreport_nonstarter'),
+                array(
+                    'choices'     => $this->_fields,
+                    'notadvanced' => array('fullname'),
+                    'extra'       => true, // include all extra profile fields
+                    'heading'     => get_string('filter_profile_match',
+                                                'rlreport_nonstarter'),
+                    'footer'      => get_string('footer', 'rlreport_nonstarter')
+                )
+            );
+
+        // Save the user profile filter for later use in header entries
+        $this->upfilter = $upfilter;
+
+        $filters = $upfilter->get_filters();
+
         $filterhelp = array('nonstarter_report_help',
                             get_string('nonstarter_report_help', 'rlreport_nonstarter'),
                             'block_php_report');
-        return( array(
-            // date range filter init
-            // NOTE: $tablealias(param2) & $fieldname(param3) intentionally
-            //       set to ''(empty string) - used internally;
-            //       do _not_ want date values appended to main SQL query!
-            // see also: curriculum/lib/filtering/date.php::get_sql_filter($data)
-            // it must return null if get_full_fieldname() returns empty string
 
-            new generalized_filter_entry(nonstarter_report::datefilterid, '',
-                '', get_string('filter_date_range', 'rlreport_nonstarter'),
-                false, 'date', array('help' => $filterhelp))
-            )
-        );
+        $filters = array_merge($filters,
+                                array(
+                                // date range filter init
+                                // NOTE: $tablealias(param2) & $fieldname(param3) intentionally
+                                //       set to ''(empty string) - used internally;
+                                //       do _not_ want date values appended to main SQL query!
+                                // see also: curriculum/lib/filtering/date.php::get_sql_filter($data)
+                                // it must return null if get_full_fieldname() returns empty string
+
+                                new generalized_filter_entry(nonstarter_report::datefilterid, '',
+                                    '', get_string('filter_date_range', 'rlreport_nonstarter'),
+                                    false, 'date', array('help' => $filterhelp))
+                                )
+                            );
+        return $filters;
     }
 
     /**
@@ -290,6 +383,9 @@ class nonstarter_report extends table_report {
            JOIN {$CFG->prefix}crlm_class cls
                 ON cls.courseid = crs.id
           ";
+
+       // ELIS-4010: remove dependency on class times!
+       /*
         // Check that the class is open during report dates
         if (!empty($this->startdate)) {
             $sql .= "      AND (cls.enddate = 0 OR {$this->startdate} <= cls.enddate)
@@ -299,6 +395,8 @@ class nonstarter_report extends table_report {
             $sql .= "      AND (cls.startdate = 0 OR {$this->enddate} >= cls.startdate)
           ";
         }
+       */
+
         $sql .= " LEFT JOIN {$CFG->prefix}crlm_class_moodle clsm ON cls.id = clsm.classid
            JOIN {$CFG->prefix}crlm_class_enrolment clsenr
                 ON clsenr.classid = cls.id

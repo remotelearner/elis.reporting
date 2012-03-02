@@ -65,5 +65,11 @@ function xmldb_block_php_report_upgrade($oldversion = 0) {
     /// Launch add index userid_idx
         $result = $result && add_index($table, $index);
     }
+
+    if ($result && $oldversion < 2011042900) {
+        $query = "name " . sql_ilike() . " 'php_report%'";
+        $result = $result && delete_records_select('user_preferences', $query);
+    }
+
     return $result;
 }

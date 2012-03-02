@@ -49,13 +49,13 @@ $scheduled = optional_param('scheduled', 0, PARAM_INT);
 
 //Unserialize fieldidlist to check against field list
 if (isset($fieldidlist) && ($fieldidlist !== null)) {
-    $fieldidlist = unserialize(base64_decode($fieldidlist));
+    $fieldidlist = @unserialize(base64_decode($fieldidlist));
 }
 if (isset($fieldnamelist) && ($fieldnamelist !== null)) {
-    $fieldnamelist = unserialize(base64_decode($fieldnamelist));
+    $fieldnamelist = @unserialize(base64_decode($fieldnamelist));
 }
 if (isset($fieldname) && ($fieldname !== null)) {
-    $fieldname = unserialize(base64_decode($fieldname));
+    $fieldname = @unserialize(base64_decode($fieldname));
 }
 
 // Update the field id and name lists based on the action
@@ -179,8 +179,8 @@ echo ':'.$serialized_fieldidlist.':'.$serialized_fieldnamelist.':';
  * @return  object  $object     fixed object
  */
 function fix_object(&$object) {
-    if (!is_object ($object) && gettype ($object) == 'object') {
-        $object = unserialize (serialize ($object));
+    if (!is_object($object) && gettype($object) == 'object') {
+        $object = @unserialize(serialize($object));
     }
     return $object;
 }

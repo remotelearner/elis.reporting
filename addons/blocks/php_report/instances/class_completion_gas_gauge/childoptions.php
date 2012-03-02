@@ -28,8 +28,8 @@
  * Generate a JSON data set containing all the classes belonging to the specified course
  */
 
-require_once('../../../../config.php');
-
+require_once('../../../../config.php');               // Moodle
+require_once($CFG->dirroot.'/curriculum/config.php'); // Curriculum
 require_once($CFG->dirroot.'/blocks/php_report/instances/class_completion_gas_gauge/class_completion_gas_gauge_report.class.php');
 require_once($CFG->dirroot.'/curriculum/lib/contexts.php');
 require_once($CFG->dirroot.'/curriculum/lib/cmclass.class.php');
@@ -39,15 +39,20 @@ if (!isloggedin() || isguestuser()) {
     exit;
 }
 
-$id = optional_param('id', '', PARAM_INT);
+$ids = optional_param('id', '', PARAM_INT);
+if (!is_array($ids)) {
+    $ids = array($ids);
+}
 
-$choices_array = array(''=>'Select a class'); // Must have blank value as the default here (instead of zero) or it breaks the gas guage report
+$choices_array = array(array('', get_string('selectclass', 'rlreport_class_completion_gas_gauge'))); // Must have blank value as the default here (instead of zero) or it breaks the gas guage report
 
-if ($id > 0) {
-    $contexts = get_contexts_by_capability_for_user('class', 'block/php_report:view', $USER->id);
-    if($records = cmclass_get_listing('crsname', 'ASC', 0, 0, '', '', $id, false, $contexts)) {
-        foreach($records as $record) {
-            $choices_array[$record->id] = $record->idnumber;
+if (count($ids) > 0) {
+    foreach ($ids as $id) {
+        $contexts = get_contexts_by_capability_for_user('class', 'block/php_report:view', $USER->id);
+        if($records = cmclass_get_listing('idnumber', 'ASC', 0, 0, '', '', $id, false, $contexts)) {
+            foreach($records as $record) {
+                $choices_array[] = array($record->id, $record->idnumber);
+            }
         }
     }
 }

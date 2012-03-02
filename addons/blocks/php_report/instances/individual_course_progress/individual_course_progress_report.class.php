@@ -30,6 +30,8 @@ class individual_course_progress_report extends table_report {
     var $custom_joins = array();
     var $lang_file = 'rlreport_individual_course_progress';
 
+    var $field_default = array();
+
     /**
      * Gets the report category.
      *
@@ -107,6 +109,7 @@ class individual_course_progress_report extends table_report {
                 foreach ($user_obj->cluster as $cluster) {
                     $cluster_names[] = $cluster->name;
                 }
+                sort($cluster_names);
             }
         }
 
@@ -138,7 +141,7 @@ class individual_course_progress_report extends table_report {
             $header_obj = new stdClass;
             $header_obj->label = get_string('header_cluster',$this->lang_file).':';
             $header_obj->value = (count($cluster_names) > 0)
-                               ? implode(', ',$cluster_names)
+                               ? implode(', ', $cluster_names)
                                : get_string('not_available',$this->lang_file);
             $header_obj->css_identifier = '';
             $header_array[] = $header_obj;
@@ -206,9 +209,8 @@ class individual_course_progress_report extends table_report {
         $report_index = 'php_report_' . $this->get_report_shortname() .
                         '/field' . $this->id;
 
-        if (isset($user_preferences[$report_index])) {
-            $default_fieldid_list = unserialize(base64_decode($user_preferences[$report_index]));
-        } else {
+        if (!isset($user_preferences[$report_index]) ||
+            ($default_fieldid_list = @unserialize(base64_decode($user_preferences[$report_index]))) === false ) {
             $default_fieldid_list = array();
         }
         $field_list = array('fieldids' => $default_fieldid_list);
@@ -260,7 +262,7 @@ class individual_course_progress_report extends table_report {
        $filter_params = php_report_filtering_get_active_filter_values($this->get_report_shortname(),'field'.$this->get_report_shortname());
 
        // Unserialize value of filter params to get field ids array
-        $filter_params = unserialize(base64_decode($filter_params[0]['value']));
+        $filter_params = @unserialize(base64_decode($filter_params[0]['value']));
 
         // Loop through these additional parameters - new columns, will  have to eventually pass the table etc...
         if (isset($filter_params) && is_array($filter_params)) {
@@ -270,6 +272,15 @@ class individual_course_progress_report extends table_report {
 
             foreach ($filter_params as $custom_course_id) {
                 $custom_course_field = new field($custom_course_id);
+
+                // Obtain custom field default values IFF set
+                if (($default_value = $custom_course_field->get_default())
+                    !== false) {
+                    // save in array { record_field => default_value }
+                    $this->field_default['custom_data_'. $custom_course_id] =
+                              $default_value;
+                }
+
                 //Find matching course field
                 $course_field_title = $fields[$custom_course_id]->name;
 
@@ -471,7 +482,11 @@ class individual_course_progress_report extends table_report {
 
         //main query
         $sql = "SELECT {$columns},
-                       crs.id AS courseid
+                       crs.id AS courseid,
+                       cls.starttimehour AS starttimehour,
+                       cls.starttimeminute AS starttimeminute,
+                       cls.endtimehour AS endtimehour,
+                       cls.endtimeminute AS endtimeminute
                 FROM {$CURMAN->db->prefix_table(CLSTABLE)} cls
                 JOIN {$CURMAN->db->prefix_table(STUTABLE)} enrol
                     ON enrol.classid = cls.id
@@ -555,8 +570,8 @@ class individual_course_progress_report extends table_report {
     function transform_record($record, $export_format) {
 
         $record->startdate = ($record->startdate == 0)
-                           ? get_string('na', $this->lang_file)
-                           : $this->userdate($record->startdate);
+                             ? get_string('na', $this->lang_file)
+                             : $this->cmclassdate($record, 'start');
 
         $today = strtotime(date('Y-m-d'));
         if ($record->enddate > $today) {
@@ -564,16 +579,16 @@ class individual_course_progress_report extends table_report {
         } else {
             $record->enddate = ($record->enddate == 0)
                              ? get_string('na', $this->lang_file)
-                             : $this->userdate($record->enddate);
+                             : $this->cmclassdate($record, 'end');
         }
 
         //make sure this is set to something so that the horizontal bar graph doesn't disappear
-        if(empty($record->stucompletedprogress)) {
+        if (empty($record->stucompletedprogress)) {
             $record->stucompletedprogress = 0;
         }
 
         $a = new stdClass;
-        if(isset($record->stucompletedprogress)) {
+        if (isset($record->stucompletedprogress)) {
             $a->value = $record->stucompletedprogress;
             $a->total = $record->numprogress;
         } else {
@@ -582,29 +597,43 @@ class individual_course_progress_report extends table_report {
         }
         $record->completedprogress = get_string('of', $this->lang_file, $a);
 
-        if(empty($record->numresources)) {
+        if (empty($record->numresources)) {
            $record->numresources = 0;
         }
 
-        if(!empty($record->pretestscore)) {
-            $record->pretestscore .= get_string('percent_symbol', $this->lang_file);
+        if (!empty($record->pretestscore)) {
+            $record->pretestscore = cm_display_grade($record->pretestscore);
+            if ($export_format != php_report::$EXPORT_FORMAT_CSV) {
+                $record->pretestscore .= get_string('percent_symbol', $this->lang_file);
+            }
         } else {
             $record->pretestscore = get_string('no_test_symbol', $this->lang_file);
         }
 
-        if(!empty($record->posttestscore)) {
-            $record->posttestscore .= get_string('percent_symbol', $this->lang_file);
+        if (!empty($record->posttestscore)) {
+            $record->posttestscore = cm_display_grade($record->posttestscore);
+            if ($export_format != php_report::$EXPORT_FORMAT_CSV) {
+                $record->posttestscore .= get_string('percent_symbol', $this->lang_file);
+            }
         } else {
             $record->posttestscore = get_string('no_test_symbol', $this->lang_file);
         }
 
-        if(empty($record->numposts)) {
+        if (empty($record->numposts)) {
             $record->numposts = 0;
         }
 
         $record->enrol_status = (empty($record->enrol_status))
                               ? get_string('grouping_course_in_progress', $this->lang_file)
                               : get_string('grouping_course_complete', $this->lang_file);
+
+        // Default values for custom fields IF not set
+        foreach ($this->field_default as $key => $value) {
+            //error_log("ICPR:transform_record(), checking default for {$key} => {$value}");
+            if (!isset($record->$key)) {
+                $record->$key = $value;
+            }
+        }
 
         return $record;
     }

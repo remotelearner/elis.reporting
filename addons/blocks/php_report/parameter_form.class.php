@@ -87,7 +87,8 @@ class parameter_form extends moodleform {
             $elements = array();
 
             $elements[] = $mform->createElement('submit', 'reset_form', get_string('button_reset_form', 'block_php_report'));
-            $elements[] = $mform->createElement('submit', 'save_defaults', get_string('button_save_defaults', 'block_php_report'));
+            //remove "Save Values as Defaults" until we clean up some parameter-related functionality (ELIS-2733)
+            //$elements[] = $mform->createElement('submit', 'save_defaults', get_string('button_save_defaults', 'block_php_report'));
 
             //determine whether to display the cancel button (not shown on first view of this form)
             if (!empty($this->_customdata['showcancel'])) {

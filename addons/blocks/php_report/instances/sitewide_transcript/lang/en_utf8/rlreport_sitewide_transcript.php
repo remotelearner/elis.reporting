@@ -20,6 +20,7 @@ $string['grouping_studentname'] = 'Student Name: ';
 
 $string['incomplete'] = 'Incomplete';
 $string['na'] = 'N/A';
+$string['percent_symbol'] = '%%';
 $string['present'] = 'Present';
 $string['report_heading'] = 'Sitewide Transcript Report';
 
