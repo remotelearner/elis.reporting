@@ -306,6 +306,8 @@ class nonstarter_report extends table_report {
            JOIN {crlm_class} cls
                 ON cls.courseid = crs.id
           ";
+      // ELIS-4009: remove dependency on class times!
+      /*
         // Check that the class is open during report dates
         if (!empty($this->startdate)) {
             $sql .= "      AND (cls.enddate = 0 OR {$this->startdate} <= cls.enddate)
@@ -315,6 +317,8 @@ class nonstarter_report extends table_report {
             $sql .= "      AND (cls.startdate = 0 OR {$this->enddate} >= cls.startdate)
           ";
         }
+      */
+
         $sql .= " LEFT JOIN {crlm_class_moodle} clsm ON cls.id = clsm.classid
            JOIN {crlm_class_enrolment} clsenr
                 ON clsenr.classid = cls.id

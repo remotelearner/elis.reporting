@@ -22,6 +22,7 @@ $string['grouping_year'] = 'Year: ';
 
 $string['month_format'] = '{$a->str_month} ({$a->int_month})';
 $string['na'] = 'N/A';
+$string['no_time_logged'] = 'No time logged for any {$a}';
 $string['pluginname'] = 'Sitewide Time Summary Report';
 $string['present'] = 'Present';
 $string['report_heading'] = 'Sitewide Time Summary Report: ';
