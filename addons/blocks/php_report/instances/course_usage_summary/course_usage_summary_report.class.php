@@ -920,8 +920,8 @@ class course_usage_summary_report extends icon_config_report {
     }
 
     /**
-     * Specifies the data representing the total number of students in courses
-     *  (actually number of enrolments)
+     * Specifies the data representing the total number of students in classes,
+     * actually number of enrolments in classes LINKED TO MOODLE COURSE!
      *
      * @uses    $DB
      * @return  numeric                       The calculated value
@@ -933,6 +933,8 @@ class course_usage_summary_report extends icon_config_report {
         //main query
         $sql = 'SELECT COUNT(enrol.id) as num_students
                   FROM {'. student::TABLE .'} enrol
+                  JOIN {'. classmoodlecourse::TABLE .'} clsm
+                    ON enrol.classid = clsm.classid
                ';
 
         if (empty(elis::$config->elis_program->legacy_show_inactive_users)) {

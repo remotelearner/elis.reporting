@@ -45,8 +45,8 @@ class curricula_report extends table_report {
      * Note: can override default labels with values (leave empty for default)
      * Eg. 'lastname' =>  'Surname', ...
      */
-    var $_fields =
-        array(
+    var $_fields = array(
+        'up' => array(
             'fullname',
             'lastname',
             'firstname',
@@ -65,7 +65,8 @@ class curricula_report extends table_report {
             'lastlogin',
             'timemodified',
             'auth'
-        );
+        )
+    );
 
      /**
      * Specifies whether the current report is available
