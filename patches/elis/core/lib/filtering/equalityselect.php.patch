@@ -1,0 +1,13 @@
+diff --git a/elis/core/lib/filtering/equalityselect.php b/elis/core/lib/filtering/equalityselect.php
+index d2bb401..cea525a 100644
+--- a/elis/core/lib/filtering/equalityselect.php
++++ b/elis/core/lib/filtering/equalityselect.php
+@@ -164,7 +164,7 @@ class generalized_filter_equalityselect extends generalized_filter_type {
+             return null;
+         }
+ 
+-        $value = addslashes($data['value']);
++        $value = $data['value'];
+         // TBD: numeric obsolete with new parameters?
+         //if (empty($data['numeric'])) {
+         //    $value = "'{$value}'";

@@ -14,9 +14,9 @@ $string['displayname'] = 'New Registrants by Course Report';
 $string['filter_program'] = 'Select the program or all programs';
 $string['filter_date_range'] = 'Select the date range for this report';
 
-$string['grouping_curriculum'] = 'Curriculum';
-$string['grouping_course'] = 'Course Name';
-$string['grouping_class'] = 'Class ID';
+$string['grouping_curriculum'] = 'Program';
+$string['grouping_course'] = 'Course Description';
+$string['grouping_class'] = 'Class Instance ID';
 
 $string['header_date_range'] = 'New Student Registrants By Course';
 

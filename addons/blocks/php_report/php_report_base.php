@@ -50,6 +50,7 @@ abstract class php_report {
     const CATEGORY_PARTICIPATION = 'participation_reports';
     const CATEGORY_USER = 'user_reports';
     const CATEGORY_OUTCOMES = 'outcomes_reports';
+    const CATEGORY_NODISPLAY = null;
 
     const EXECUTION_MODE_INTERACTIVE = 0;
     const EXECUTION_MODE_SCHEDULED = 1;
@@ -374,6 +375,16 @@ abstract class php_report {
     }
 
     /**
+     * Specifies the config url for this report
+     *
+     * @return  string  The config url
+     */
+    function get_config_url() {
+        global $CFG;
+        return $CFG->wwwroot .'/blocks/php_report/config_params.php?id='. $this->id .'&showcancel=1'; // TBD ???
+    }
+
+    /**
      * Specifies the config header for this report
      *
      * @return  string  The HTML content of the config header
@@ -409,12 +420,15 @@ abstract class php_report {
 
         //also assert that at least one export format is available
         $export_formats = $this->get_export_formats();
-        if (count($export_formats) == 0) {
-            $show_schedule_report_link = false;
-        }
+        //if (count($export_formats) == 0) {
+        //    $show_schedule_report_link = false;
+        //}
+        $show_export_icons = count($export_formats) > 0;
+        //determine if some icon needs to be displayed
+        $show_something = $show_config_filters_link || $show_schedule_report_link || $show_export_icons;
 
-        if (!$show_config_filters_link && !$show_schedule_report_link) {
-            //no filter link or schedule link to show
+        if (!$show_something) {
+            //no filter, export or schedule links to show
             return '';
         }
 
@@ -425,7 +439,7 @@ abstract class php_report {
             $alt_text = get_string('config_params', 'block_php_report');
 
             //link to parameter screen with cancel button
-            $config_params_url = $CFG->wwwroot .'/blocks/php_report/config_params.php?id='. $this->id .'&showcancel=1';
+            $config_params_url = $this->get_config_url();
 
             //start of anchor for link
             $result .= html_writer::start_tag('a', array('href' => $config_params_url));
@@ -529,6 +543,7 @@ abstract class php_report {
      * @return  string  The HTML content of the display
      */
     function get_interactive_filter_display() {
+        //todo: determine if this method is even needed anymore
         $result = '';
 
         if (isset($this->filter) && $this->allow_interactive_filters()) {
