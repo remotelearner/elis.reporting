@@ -37,6 +37,7 @@ $string['header_crs_value'] = '{$a->name} ({$a->idnumber})';
 
 $string['na'] = 'N/A';
 
+$string['percent_symbol'] = '%';
 $string['pluginname'] = 'Class Completion Gas Gauge Report';
 
 $string['selectclass'] = 'Select a class';

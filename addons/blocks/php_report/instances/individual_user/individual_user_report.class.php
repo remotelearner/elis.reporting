@@ -298,7 +298,7 @@ class individual_user_report extends table_report {
                                  $datum->credits, $export_format);
              $result[] = $this->add_grouping_header(
                                  get_string('transform_grade', $this->lang_file) . ': ',
-                                 $datum->grade, $export_format);
+                                 pm_display_grade($datum->grade), $export_format);
              $result[] = $this->add_grouping_header($grouping->label,
                                  $grouping_current[$grouping->field],
                                  $export_format);
@@ -379,7 +379,7 @@ class individual_user_report extends table_report {
                              $this->get_report_shortname(), 'userid', $this->filter);
         $filter_user_id = (isset($filter_array[0]['value']))
                         ? $filter_array[0]['value']
-                        : 0;
+                        : -1; // ELIS-4699: so not == to invalid cm/pm userid
 
         $params = array();
         $permissions_filter = '';
@@ -467,7 +467,7 @@ class individual_user_report extends table_report {
 
         $record->score = (empty($record->score))
                        ? get_string('na', $this->lang_file)
-                       : $record->score .
+                       : pm_display_grade($record->score) .
                          (($export_format == php_report::$EXPORT_FORMAT_CSV)
                          ? '' :  get_string('percent_symbol', $this->lang_file));
         if (!$init_column_width && $export_format == php_report::$EXPORT_FORMAT_PDF) {
@@ -481,7 +481,6 @@ class individual_user_report extends table_report {
     /**
      * Determines whether the current user can view this report, based on being logged in
      * and php_report:view capability
-     *
      * @return  boolean  True if permitted, otherwise false
      */
     function can_view_report() {
@@ -490,16 +489,20 @@ class individual_user_report extends table_report {
             return false;
         }
 
-        if ($this->execution_mode == php_report::EXECUTION_MODE_SCHEDULED) {
-            $this->require_dependencies();
-
-            //when scheduling, make sure the current user has the scheduling capability for SOME user
-            $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
-            return !$contexts->is_empty();
+        $this->require_dependencies();
+        $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
+        if (!$contexts->is_empty()) {
+            return true;
         }
 
-        // Since user is logged in they should always be able to see their own courses/classes
-        return true;
+        // Since user is logged-in AND HAVE VALID PM/CM userid, then they should
+        // always be able to see their own courses/classes, but NOT schedule
+        if ($this->execution_mode != php_report::EXECUTION_MODE_SCHEDULED
+            && cm_get_crlmuserid($this->userid)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

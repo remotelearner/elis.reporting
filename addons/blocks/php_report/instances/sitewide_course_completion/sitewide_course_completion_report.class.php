@@ -369,11 +369,11 @@ class sitewide_course_completion_report extends table_report {
                                    $this->lang_file);
         }
 
-        if (!empty($record->r_total_grade)) {
-            $record->r_total_grade = round($record->r_total_grade);
-            if ($export_format != php_report::$EXPORT_FORMAT_CSV) {
-                $record->r_total_grade .= get_string('percent_symbol',
-                                                     $this->lang_file);
+        // ELIS-4916: now using ELIS grade!
+        if (!empty($record->elisgrade)) {
+            $record->r_total_grade = pm_display_grade($record->elisgrade);
+            if (is_numeric($record->r_total_grade) && $export_format != php_report::$EXPORT_FORMAT_CSV) {
+                $record->r_total_grade .= get_string('percent_symbol', $this->lang_file);
             }
         } else {
             $record->r_total_grade = get_string('na', $this->lang_file);
@@ -419,7 +419,8 @@ class sitewide_course_completion_report extends table_report {
         if (stripos($columns, $firstname) === FALSE) {
             $columns .= ", {$firstname}";
         }
-        $sql = "SELECT {$columns}, cur.id IS NULL AS isnull
+        $sql = "SELECT {$columns}, cur.id IS NULL AS isnull,
+                       clsenr.grade AS elisgrade
                 FROM {". pmclass::TABLE ."} cls
                 JOIN {". course::TABLE ."} crs
                     ON crs.id = cls.courseid

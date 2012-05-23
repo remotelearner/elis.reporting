@@ -1,0 +1,22 @@
+diff --git a/elis/core/lib/filtering/simpleselect.php b/elis/core/lib/filtering/simpleselect.php
+index 1cf1a21..8863d69 100644
+--- a/elis/core/lib/filtering/simpleselect.php
++++ b/elis/core/lib/filtering/simpleselect.php
+@@ -35,8 +35,6 @@ class generalized_filter_simpleselect extends generalized_filter_type {
+     /**
+      * options for the list values
+      */
+-    var $_options = array();
+-
+     var $_field;
+ 
+     var $_options  = array();  // Select options
+@@ -173,7 +171,7 @@ class generalized_filter_simpleselect extends generalized_filter_type {
+             }
+             $a->value = implode(get_string('or', 'elis_core'), $value);
+         } else {
+-            $a->value = '"'.s($this->_options[$value]).'"';
++            $a->value = '"'. s($this->_options[$value]) .'"';
+         }
+         $a->operator = get_string('isequalto', 'filters');
+ 

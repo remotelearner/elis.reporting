@@ -251,6 +251,16 @@ class sitewide_transcript_report extends table_report {
                      );
         $record->status = get_string($statusmap[$record->status],
                                      $this->langfile);
+
+        if (!empty($record->grade)) {
+            $record->grade = pm_display_grade($record->grade);
+            if ($export_format != php_report::$EXPORT_FORMAT_CSV) {
+                $record->grade .= get_string('percent_symbol', $this->langfile);
+            }
+        } else {
+            $record->grade = get_string('na', $this->langfile);
+        }
+
         return $record;
     }
 

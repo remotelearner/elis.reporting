@@ -85,6 +85,9 @@ abstract class table_report extends php_report {
     const offset = 0;
     const limit = 1;
 
+    //constant used to define a token we are replacing with filter sql
+    const PARAMETER_TOKEN = "''php_report_parameters''";
+
     /**
      * Contructor.
      *
@@ -1445,39 +1448,83 @@ abstract class table_report extends php_report {
      * by the report engine
      *
      * @param   boolean  $use_limit  true if the paging-based limit clause should be included, otherwise false
-     *
+     * @param   string   $sql        Fixed sql to replace parameters with - if null, obtain from report definition
+     * @param   array    $params     the SQL query parameters
      * @return  array                The SQL query, and the appropriate sql filter information
      */
-    function get_complete_sql_query($use_limit = true) {
+    function get_complete_sql_query($use_limit = true, $sql = null, $params = array()) {
         $columns = $this->get_select_columns();
 
+        //used to track whether we're in the main report flow or not
+        $in_main_report_flow = false;
+
         //query from the report implementation
-        list($sql, $params) = $this->get_report_sql($columns);
-
-        $has_where_clause = php_report::sql_has_where_clause($sql);
-
-        $conditional_symbol = 'WHERE';
-
-        if ($has_where_clause) {
-            $conditional_symbol = 'AND';
+        if ($sql === null) {
+            list($sql, $params) = $this->get_report_sql($columns);
+            $in_main_report_flow = true;
         }
 
-        //filtering
-        list($additional_sql, $additional_params) = $this->get_filter_condition($conditional_symbol);
-        $sql .= $additional_sql;
-        $params = array_merge($params, $additional_params);
+        //determine if the special wildcard for adding filter sql is included
+        $parameter_token_pos = strpos($sql, table_report::PARAMETER_TOKEN);
+        if ($parameter_token_pos === false) {
+            //no wildcard, so add filter sql to the end
 
-        //grouping
-        $groups = $this->get_report_sql_groups();
-        if (!empty($groups)) {
-            $sql .= " GROUP BY {$groups}";
+            //determine if we need an add or where clause
+            $has_where_clause = php_report::sql_has_where_clause($sql);
+
+            $conditional_symbol = 'WHERE';
+            if ($has_where_clause) {
+                $conditional_symbol = 'AND';
+            }
+
+            //add filter sql
+            list($additional_sql, $additional_params) = $this->get_filter_condition($conditional_symbol);
+            $sql .= $additional_sql;
+            $params = array_merge($params, $additional_params);
+        } else {
+            //wildcard, so do a find and replace
+            //get the filter clause without adding WHERE or AND - it's up to the
+            //report to include those in this case because parsing pieces of queries
+            //is complex and error-prone
+            list($filter_clause, $filter_params) = $this->get_filter_condition('');
+            if (empty($filter_clause)) {
+                $filter_clause = 'TRUE';
+            }
+
+            //replace the wildcard with the filter clause
+            $sql = str_replace(table_report::PARAMETER_TOKEN, $filter_clause, $sql);
+            // Check for duplicate named parameters
+            foreach ($filter_params as $key => $value) {
+                if (substr_count($sql, ":{$key}") > 1) {
+                    $cnt = 0;
+                    $sql_parts = explode(":{$key}", $sql);
+                    foreach($sql_parts as $sql_part) {
+                        if ($cnt++) {
+                            $newkey = ($cnt == 1) ? $key : "{$key}_{$cnt}";
+                            $new_sql .= ":{$newkey}{$sql_part}";
+                            $filter_params[$newkey] = $value;
+                        } else {
+                            $new_sql = $sql_part;
+                        }
+                    }
+                    $sql = $new_sql;
+                }
+            }
+            $params = array_merge($params, $filter_params);
         }
 
-        $this->set_num_recs($sql, $params);
+        if ($in_main_report_flow) {
+            //grouping
+            $groups = $this->get_report_sql_groups();
+            if (!empty($groups)) {
+                $sql .= " GROUP BY {$groups}";
+            }
 
-        //ordering
-        $sql .= $this->get_order_by_clause();
+            $this->set_num_recs($sql, $params);
 
+            //ordering
+            $sql .= $this->get_order_by_clause();
+        }
         return array($sql, $params);
     }
 

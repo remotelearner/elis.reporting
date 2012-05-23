@@ -40,14 +40,20 @@ if (!isloggedin() || isguestuser()) {
     exit;
 }
 
-$id = optional_param('id', 0, PARAM_INT);
+$ids = optional_param('id', 0, PARAM_INT);
+if (!$ids) {
+    $ids = array();
+}
+if (!is_array($ids)) {
+    $ids = array($ids);
+}
 
 // Must have blank value as the default here (instead of zero) or it breaks the gas guage report
 $choices_array = array(array('', get_string('selectclass', 'rlreport_class_completion_gas_gauge')));
 
-if ($id > 0) {
+if (count($ids) > 0) {
     $contexts = get_contexts_by_capability_for_user('class', 'block/php_report:view', $USER->id);
-    if ($records = pmclass_get_listing('idnumber', 'ASC', 0, 0, '', '', $id, false, $contexts)) {
+    if ($records = pmclass_get_listing('idnumber', 'ASC', 0, 0, '', '', $ids, false, $contexts)) {
         foreach ($records as $record) {
             $choices_array[] = array($record->id, $record->idnumber);
         }

@@ -1,0 +1,13 @@
+diff --git a/elis/core/lib/filtering/userprofileselect.php b/elis/core/lib/filtering/userprofileselect.php
+index 63bf6ed..1556b74 100644
+--- a/elis/core/lib/filtering/userprofileselect.php
++++ b/elis/core/lib/filtering/userprofileselect.php
+@@ -87,7 +87,7 @@ class generalized_filter_userprofileselect extends generalized_filter_simplesele
+         }
+ 
+         $value = $data['value'];
+-        $value = addslashes($value);
++        //$value = addslashes($value);
+ 
+         $sql = "{$this->_tables['user']}.id IN
+                 (SELECT userid FROM {user_info_data}
