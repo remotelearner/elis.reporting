@@ -509,15 +509,15 @@ class class_completion_gas_gauge_report extends gas_gauge_table_report {
 
         //total number of users
         $total_sql = "{$base_sql}";
-        $total_field = $this->get_field_sql($total_sql, $params);
+        $this->total_field = $this->get_field_sql($total_sql, $params);
 
         //avoid dividing by zero
-        if (empty($total_field)) {
+        if (empty($this->total_field)) {
             return 0;
         }
 
         //return the percentage of distinct users who are completed
-        return $completed_field / $total_field * 100;
+        return $completed_field / $this->total_field * 100;
     }
 
     /**
@@ -574,18 +574,20 @@ class class_completion_gas_gauge_report extends gas_gauge_table_report {
 
         //class description, including class name
         $class_description = get_string('class_description', $this->lang_file, $class_name);
-        //general progress status message
 
-        if ($this->gas_gauge_value === NULL) {
-            $display_value = get_string('na', $this->lang_file);
+        if (empty($this->total_field)) {
+            $class_progress = get_string('no_enrolments', $this->lang_file);
         } else {
-            $display_value = number_format($this->gas_gauge_value, 1);
+            //general progress status message
+            if ($this->gas_gauge_value === NULL) {
+                $display_value = get_string('na', $this->lang_file);
+            } else {
+                $display_value = number_format($this->gas_gauge_value, 1);
+            }
+            $class_progress = get_string('class_progress', $this->lang_file, $display_value);
         }
 
-        $class_progress = get_string('class_progress', $this->lang_file, $display_value);
-
-        return array($class_description,
-                     $class_progress);
+        return array($class_description, $class_progress);
     }
 
     /**

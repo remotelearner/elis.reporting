@@ -1076,16 +1076,14 @@ abstract class table_report extends php_report {
         }
 
         $effective_url = "{$effective_url}&amp;sort={$this->sort}&amp;dir={$this->dir}&amp;" .
-                         "perpage={$this->perpage}";
-        $pagingbar = new paging_bar($this->numrecs, $this->page, $this->perpage, $effective_url);
-        echo $OUTPUT->render($pagingbar);
+                         "perpage={$this->perpage}&amp;";
+        $this->print_paging_bar($this->numrecs, $this->page, $this->perpage, $effective_url);
 
         //show available and active filters, if applicable
         echo $this->get_interactive_filter_display();
 
         return $output;
     }
-
 
     /**
      * Print the paging footer for the table.
@@ -1106,9 +1104,9 @@ abstract class table_report extends php_report {
         }
 
         $effective_url = "{$effective_url}&amp;sort={$this->sort}&amp;dir={$this->dir}&amp;" .
-                         "perpage={$this->perpage}";
-        $pagingbar = new paging_bar($this->numrecs, $this->page, $this->perpage, $effective_url);
-        echo $OUTPUT->render($pagingbar);
+                         "perpage={$this->perpage}&amp;";
+        $this->print_paging_bar($this->numrecs, $this->page, $this->perpage, $effective_url);
+        echo '<br/>'; // TBD: spacing
 
         return $output;
     }

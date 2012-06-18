@@ -29,32 +29,38 @@
  */
 
 require_once(dirname(__FILE__) .'/../../../../config.php');
-
-require_once($CFG->dirroot .'/blocks/php_report/instances/class_roster/class_roster_report.class.php');
 require_once($CFG->dirroot .'/elis/program/lib/setup.php');
 require_once($CFG->dirroot .'/elis/program/lib/contexts.php');
 require_once($CFG->dirroot .'/elis/program/lib/data/pmclass.class.php');
-
-global $USER;
 
 if (!isloggedin() || isguestuser()) {
     mtrace("ERROR: must be logged in!");
     exit;
 }
 
-$ids = optional_param('id', 0, PARAM_INT);
-if (!$ids) {
-    $ids = array();
-}
-if (!is_array($ids)) {
-    $ids = array($ids);
+$ids = array();
+if (array_key_exists('id', $_REQUEST)) {
+    $dirtyids = $_REQUEST['id'];
+    if (is_array($dirtyids)) {
+        foreach ($dirtyids as $dirty) {
+            $ids[] = clean_param($dirty, PARAM_INT);
+        }
+    } else {
+        $ids[] = clean_param($dirtyids, PARAM_INT);
+    }
+} else {
+    $ids[] = 0;
 }
 
-$choices_array = array(array('', get_string('selectclass', 'rlreport_class_roster')));
+// Must have blank value as the default here (instead of zero) or it breaks the gas guage report
+$choices_array = array(array('', get_string('anyvalue', 'filters')));
 
-if (count($ids) > 0) {
+if (!empty($ids)) {
     $contexts = get_contexts_by_capability_for_user('class', 'block/php_report:view', $USER->id);
-    if ($records = pmclass_get_listing('idnumber', 'ASC', 0, 0, '', '', $ids, false, $contexts)) {
+
+    $records = pmclass_get_listing('idnumber', 'ASC', 0, 0, '', '', $ids, false, $contexts);
+
+    if (is_array($records)) {
         foreach ($records as $record) {
             $choices_array[] = array($record->id, $record->idnumber);
         }
@@ -62,4 +68,3 @@ if (count($ids) > 0) {
 }
 
 echo json_encode($choices_array);
-

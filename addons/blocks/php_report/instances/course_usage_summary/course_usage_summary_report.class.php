@@ -83,7 +83,7 @@ class course_usage_summary_report extends icon_config_report {
         require_once($CFG->dirroot .'/elis/program/lib/data/classmoodlecourse.class.php');
         require_once($CFG->dirroot .'/elis/program/lib/data/user.class.php');
         require_once($CFG->dirroot .'/elis/program/lib/data/student.class.php');
- 
+
         //needed for options filters
         require_once($CFG->dirroot .'/elis/core/lib/filtering/checkboxes.php');
         require_once($CFG->dirroot .'/elis/core/lib/filtering/date.php');
@@ -541,9 +541,6 @@ class course_usage_summary_report extends icon_config_report {
 
         $result = get_string('na', 'rlreport_course_usage_summary');
 
-        //Get the course context
-        $course_context_level = context_level_base::get_custom_context_level('course', 'elis_program');
-
         $avg_crs_grd = 0;
 
         //Get the field id of the field shortname to use in the data table
@@ -557,7 +554,7 @@ class course_usage_summary_report extends icon_config_report {
                      FROM {'. $data_table ."} d
                      JOIN {context} ctxt
                        ON d.contextid = ctxt.id
-                      AND ctxt.contextlevel = {$course_context_level}
+                      AND ctxt.contextlevel = ".CONTEXT_ELIS_COURSE."
                      JOIN {". coursecompletion::TABLE .'} comp
                        ON d.data = comp.idnumber
                      JOIN {'. pmclass::TABLE .'} class

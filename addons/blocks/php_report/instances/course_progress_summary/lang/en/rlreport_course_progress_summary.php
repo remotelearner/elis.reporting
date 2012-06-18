@@ -28,19 +28,20 @@ $string['filter_cluster'] = 'Select the Organizations/User Sets to show or show 
 $string['filter_course_date'] = 'Show courses starting between these dates:';
 $string['filter_custom_fields'] = 'selecting custom course fields';
 $string['filter_program'] = 'Select the program or all programs';
+$string['filter_non_program'] = 'Courses not in a Program';
 $string['filter_field'] = 'Choose Custom Course Fields to show on report';
 
 $string['grouping_course_complete'] = 'Courses Completed';
 $string['grouping_course_in_progress'] = 'Courses in Progress';
 
 $string['header_all'] = 'All';
-$string['header_all_assigned'] = 'All assigned curricula';
+$string['header_all_assigned'] = 'All assigned Programs';
 $string['header_course_count'] = 'Courses in Report';
 $string['header_curricula'] = 'Programs';
 $string['header_date_range'] = 'Date Range of Report';
 $string['header_dash'] = ' - ';
 $string['header_not'] = ' Not ';
-$string['header_organization'] = 'Organization/Cluster';
+$string['header_organization'] = 'Organization/Userset';
 
 $string['move_down'] = 'Move down.';
 $string['move_up'] = 'Move up.';

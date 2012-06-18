@@ -10,9 +10,7 @@ $string['displayname'] = 'Sitewide Time Summary Report';
 
 $string['filter_cluster'] = 'View users in this organizational User Set: ';
 $string['filter_date_range'] = 'Select the Start Date and End Date for the report: ';
-$string['filter_profile_match'] = 'View users who\'s profile contains (leave blank to show all users):';
 $string['filter_user_match'] = 'Use Advanced User Filtering'; // TBD: in filter!
-$string['footer'] = 'sitewide time summary report end';
 $string['grouping_idnumber'] = 'ID Number: ';
 $string['grouping_month'] = 'Month: ';
 $string['grouping_studentname'] = 'Student Name: ';

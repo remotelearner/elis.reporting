@@ -402,6 +402,12 @@ class user_class_completion_report extends table_report {
                     'cur_name'          => 'curriculum',
                     'custom'            => array('curriculum' => 'all'),
                 ),
+                'coursefields' => array(
+                    'custom'       => array('course' => 'all'),
+                ),
+                'classfields' => array(
+                    'custom'       => array('class' => 'all'),
+                ),
                 'otherfields' => array(
                     'class_role'   => 'classrole',
                 ),
@@ -445,12 +451,11 @@ class user_class_completion_report extends table_report {
 
     /**
      * Returns an array of report columns related to the specified CM custom fields
-     * @param string $contextlevel Shortname of the context level we are looking for fields
-     *                             related to
-     * @param array $fieldids List of ids of field records we are displaying
+     * @param array  $cols  List of columns/fields we are displaying
+     * @param string $type  The custom field type: curriculum, course, class ...
      * @return array Collection of appropriate table report columns
      */
-    function get_custom_field_columns($cols) {
+    function get_custom_field_columns($cols, $type) {
         global $DB;
 
         $columns = array();
@@ -459,6 +464,17 @@ class user_class_completion_report extends table_report {
             foreach ($cols as $field => $active) {
                 if ($active && (substr($field, 0, 7) == 'custom_')) {
                     $fieldid = substr($field, 7);
+                    //store the context level that's represented by this field
+                    //$level = context_level_base::get_custom_context_level($type, 'elis_program');
+                    // ELIS-4089: Moodle 2.2 custom contexts
+                    $level = context_elis_helper::get_level_from_name($type);
+                    if (!$DB->record_exists('elis_field_contextlevels',
+                                 array('fieldid'      => $fieldid,
+                                       'contextlevel' => $level))) {
+                        continue;
+                    }
+
+                    $this->_fielddatacontexts[$fieldid] = $type;
                     $this->_customfieldids[] = $fieldid;
                     $name = $DB->get_field('elis_field', 'name', array('id' => $fieldid));
                     $column = new table_report_column('customfielddata_'.$fieldid.'.data AS customfielddata_'.$fieldid, $name, 'field_'.$fieldid);
@@ -477,9 +493,9 @@ class user_class_completion_report extends table_report {
 
                     //store the data type
                     $this->_fielddatatypes[$fieldid] = $field->data_type();
-
+// TODO: IS THIS NEEDED? JJF (Moodle 2.2)
                     //store the context level that's represented by this field
-                    $level = context_level_base::get_custom_context_level('curriculum', 'elis_program');
+                    $level = CONTEXT_ELIS_PROGRAM;
                     if ($DB->record_exists('elis_field_contextlevels',
                                  array('fieldid'      => $fieldid,
                                        'contextlevel' => $level))) {
@@ -529,7 +545,7 @@ class user_class_completion_report extends table_report {
         $result[] = $idnumber_column;
 
         // Add summary profile fields
-        $summary_custom_field_columns = $this->get_custom_field_columns($cols);
+        $summary_custom_field_columns = $this->get_custom_field_columns($cols, 'user');
         $result = array_merge($result, $summary_custom_field_columns);
 
         foreach ($optionalcols as $key => $col) {
@@ -539,6 +555,10 @@ class user_class_completion_report extends table_report {
                 $result[] = $column;
             }
         }
+
+        // Add custom curriculum fields
+        $summary_custom_field_columns = $this->get_custom_field_columns($cols, 'curriculum');
+        $result = array_merge($result, $summary_custom_field_columns);
 
         // Placeholder for displaying number of credits
         $numcredits_heading = get_string('column_numcredits', $this->languagefile);
@@ -631,23 +651,23 @@ class user_class_completion_report extends table_report {
      */
     function get_custom_field_sql($fieldids, $instancefields) {
         global $DB;
+
         $where    = $DB->get_in_or_equal($fieldids);
-        $sql      = "SELECT efc.*, c.name, c.component
-                       FROM {context_levels} c
-                       JOIN {elis_field_contextlevels} efc
-                         ON efc.contextlevel = (1000 + c.id)
-                      WHERE efc.fieldid {$where[0]}";
-        $contexts = $DB->get_records_sql($sql, $where[1]);
-        //$levels   = context_level_base::get_all_context_levels();
+        $contexts = $DB->get_records_select(field_contextlevel::TABLE, 'fieldid '.$where[0], $where[1]);
+
         $fragment = array();
 
-      /* *** debug ***
+     /* *** debug ***
         ob_start();
         var_dump($instancefields);
         $tmp = ob_get_contents();
         ob_end_clean();
         error_log("UCCR::get_custom_field_sql(fieldids, instancefields = {$tmp})");
-      */
+     */
+
+        // Get the legacy context names mapped to the context level values
+        $contextlevelnames = array_flip(context_elis_helper::get_legacy_levels());
+
         $contextlevel = '';
         $contextname  = '';
         if (!empty($contexts)) {
@@ -655,12 +675,11 @@ class user_class_completion_report extends table_report {
             foreach ($contexts as $context) {
                 if ($contextlevel != $context->contextlevel) {
                     $contextlevel = $context->contextlevel;
-                    //$contextname  = $levels[$contextlevel]->get_component_string('', ''); 
-                    $contextname = "{$context->name}_"; // TBD
-                    $instancefield = $instancefields[$context->name];
+                    $ctxname     = $contextlevelnames[$context->contextlevel];
+                    $contextname = $ctxname.'_'; // TBD
+                    $instancefield = $instancefields[$ctxname];
                     //have one ot more profile field we're joining, so join the context table at the top level
-                    $context_level = context_level_base::get_custom_context_level($contextlevel, 'elis_program');
-                    $fragment[$context->name] =
+                    $fragment[$ctxname] =
                              " LEFT JOIN {context} {$contextname}context
                                       ON {$instancefield} = {$contextname}context.instanceid
                                      AND {$contextname}context.contextlevel = {$contextlevel}";
@@ -674,7 +693,7 @@ class user_class_completion_report extends table_report {
         }
 
         $result = implode("\n", $fragment);
-        //error_log("UCCR::get_custom_field_sql() => {$result}");
+//         error_log("UCCR::get_custom_field_sql() => {$result}");
         return $result;
     }
 
@@ -833,7 +852,8 @@ class user_class_completion_report extends table_report {
             $params = array_merge($params, $filter_sql['where_parameters']);
         }
 
-        $instancefields = array('user' => 'u.id', 'curriculum' => 'cur.id');
+        $instancefields = array('user' => 'u.id', 'curriculum' => 'cur.id',
+                                'course' => 'cls.courseid', 'class' => 'cls.id');
 
         $field_joins = '';
         // Add joins related to CM custom user fields
@@ -1048,7 +1068,7 @@ class user_class_completion_report extends table_report {
                      WHERE (EXISTS ({$exists_query})
                         OR (NOT EXISTS ({$stu_not_exists_query})
                             AND NOT EXISTS ({$curr_not_exists_query})
-                           )) 
+                           ))
                     {$status_where}
                     {$status_sql}
                        AND ". table_report::PARAMETER_TOKEN ."
@@ -1156,7 +1176,7 @@ class user_class_completion_report extends table_report {
         }
 
         if ($this->_show_curricula === null) {
-            $level = context_level_base::get_custom_context_level('curriculum', 'elis_program');
+            $level = CONTEXT_ELIS_PROGRAM;
             // Check for custom fields to display
             $curriculumfields = $DB->get_records('elis_field_contextlevels',
                                          array('contextlevel' => $level));
@@ -1521,7 +1541,7 @@ class user_class_completion_report extends table_report {
         }
         $filter_sql = $filter_obj->get_sql(false, 'u', SQL_PARAMS_NAMED);
         $permissions_filter5 = 'TRUE';
-        if (isset($filter_sql['where'])) {
+        if (isset($filter_sql['where'])) { // TBD
             $permissions_filter5 = $filter_sql['where'];
             $params = array_merge($params, $filter_sql['where_parameters']);
         }
@@ -1652,7 +1672,7 @@ class user_class_completion_report extends table_report {
                              WHERE (EXISTS ({$exists_query}) OR
                                     (NOT EXISTS ({$stu_not_exists_query})
                                      AND NOT EXISTS ({$curr_not_exists_query})
-                                   )) 
+                                   ))
                             {$status_where}
                                AND ". table_report::PARAMETER_TOKEN ."
                             {$status_sql}
@@ -1914,7 +1934,7 @@ class user_class_completion_report extends table_report {
      *
      * @param   boolean  $init_data  If true, signal the report to load the
      *                               actual content of the filter objects
-     * 
+     *
      */
     function init_filter($id, $init_data = true) {
         global $CFG;

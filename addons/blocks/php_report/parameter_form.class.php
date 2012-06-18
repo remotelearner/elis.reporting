@@ -57,9 +57,13 @@ class parameter_form extends moodleform {
         //used to persist the display of the cancel button when re-displaying
         $mform->addElement('hidden', 'showcancel');
 
+        $reset_js = '';
         if (isset($this->_customdata['filterobject'])) {
             //filter object was passed, because the report uses filters
             $filter_object = $this->_customdata['filterobject'];
+
+            $reset_js = $this->get_reset_js($filter_object);
+            //error_log("parameter_form::reset_js => {$reset_js}");
 
             //handle adding of UI fields for secondary filterings
             if (!empty($filter_object->secondary_filterings)) {
@@ -120,8 +124,18 @@ if ((reportdiv = document.getElementById('php_report_block')) &&
                                        window.submitname = 'mform_showadvanced';
                                        return true;
                                      };
+            } else if (buttons[i].name == 'reset_form') {
+                //alert('parameter_form::reset_form submit input ... {$reset_js}');
+                buttons[i].onclick = function () {
+                                       {$reset_js}
+                                       if (window.customfieldpickerinstance) {
+                                           window.customfieldpickerinstance.hide();
+                                       }
+                                       window.submitname = '';
+                                       return true;
+                                     };
             } else {
-                //alert('Found non-advanced button ... adding onclick!');
+                //alert('Found non-advanced, non-reset button ... adding onclick!');
                 buttons[i].onclick = function () {
                                        if (window.customfieldpickerinstance) {
                                            window.customfieldpickerinstance.hide();
@@ -175,5 +189,18 @@ if ((reportdiv = document.getElementById('php_report_block')) &&
      */
     function set_constants($constant_values) {
         $this->_form->setConstants($constant_values);
+    }
+
+    /**
+     * Get any reset javascript code required by filters
+     * @param object $filterobj  The php_report_default_capable_filtering object
+     * @return string            The combined javascript code
+     */
+    function get_reset_js($filterobj) {
+        $reset_js = '';
+        foreach ($filterobj->_fields as $filter) {
+            $reset_js .= $filter->reset_js();
+        }
+        return $reset_js;
     }
 }

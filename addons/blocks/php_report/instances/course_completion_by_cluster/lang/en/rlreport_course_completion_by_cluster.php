@@ -39,6 +39,7 @@ $string['enable_tree'] = 'Enable Tree';
 
 $string['failed'] = 'Failed';
 $string['filter_cluster'] = 'Select the organization/User Set or all organizations/User Sets';
+$string['filter_cluster_description'] = 'To allow for the selection of multiple user sets, use the "Enable Tree" button.';
 $string['filter_clusterrole'] = 'User Set Leader Role';
 $string['filter_completed'] = 'Show completed courses';
 $string['filter_courses'] = 'Choose whether to show only completed courses, only incomplete courses, or both';

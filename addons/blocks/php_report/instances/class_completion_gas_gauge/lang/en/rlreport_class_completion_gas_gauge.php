@@ -36,6 +36,7 @@ $string['header_course'] = 'Course: ';
 $string['header_crs_value'] = '{$a->name} ({$a->idnumber})';
 
 $string['na'] = 'N/A';
+$string['no_enrolments'] = 'No enrolments for class';
 
 $string['percent_symbol'] = '%';
 $string['pluginname'] = 'Class Completion Gas Gauge Report';

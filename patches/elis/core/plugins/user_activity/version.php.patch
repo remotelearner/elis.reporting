@@ -1,0 +1,10 @@
+diff --git a/elis/core/plugins/user_activity/version.php b/elis/core/plugins/user_activity/version.php
+index 5082438..4d0cf09 100644
+--- a/elis/core/plugins/user_activity/version.php
++++ b/elis/core/plugins/user_activity/version.php
+@@ -3,4 +3,4 @@
+ defined('MOODLE_INTERNAL') || die();
+ 
+ $plugin->version = 2012021400;
+-$plugin->release = '2.0.2-PRERELEASE (Build: 20120214)';
++$plugin->release = '2.1.0.3 (Build: 20120509)';

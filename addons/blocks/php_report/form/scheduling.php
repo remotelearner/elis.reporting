@@ -413,6 +413,7 @@ class scheduling_form_step_format extends moodleform {
 
         $mform->addGroup($radioarray, 'format', get_string('format'), '', false);
         $mform->addRule('format', get_string('required_field', 'block_php_report', get_string('format')), 'required', null, 'client');
+        $mform->setDefault('format', 'csv');
 
         workflowpage::add_navigation_buttons($mform, scheduling_workflow::STEP_PARAMETERS);
     }

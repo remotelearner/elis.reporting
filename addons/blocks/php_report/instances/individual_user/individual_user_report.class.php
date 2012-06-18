@@ -30,7 +30,8 @@ require_once($CFG->dirroot .'/blocks/php_report/type/table_report.class.php');
 require_once($CFG->dirroot .'/elis/program/lib/deprecatedlib.php');
 
 class individual_user_report extends table_report {
-    var $lang_file = 'rlreport_individual_user';
+    var $lang_file    = 'rlreport_individual_user';
+    var $nopermission = false;  // Set to TRUE if the user has no permission to view the request report
 
     /**
      * Gets the report category.
@@ -96,6 +97,10 @@ class individual_user_report extends table_report {
 
         $header_array = array();
 
+        if ($this->nopermission) {
+            return $header_array;
+        }
+
         $userid = php_report_filtering_get_active_filter_values($this->get_report_shortname(),
                                                                 'userid',$this->filter);
 
@@ -139,6 +144,56 @@ class individual_user_report extends table_report {
     }
 
     /**
+     * Gets the chosen userid from the filter information
+     *
+     * @return int the user id
+     */
+    function get_chosen_userid() {
+        $chosen_userid = '';
+
+        $report_filters = php_report_filtering_get_user_preferences($this->get_report_shortname());
+        if (!empty($report_filters) && is_array($report_filters)) {
+            foreach ($report_filters as $filter => $val) {
+                if ($filter === 'php_report_'.$this->get_report_shortname().'/'.'userid') {
+                    $chosen_userid = $val;
+                }
+            }
+        }
+
+        if (!empty($chosen_userid) && is_numeric($chosen_userid)) {
+            return $chosen_userid;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Gets the permissions restriction for the current user
+     *
+     * @param string $dbfield the field to restrict on
+     * @param boolean $true_if_user If true, always allow the user to view their own info
+     * @return string The SQL fragment to be used as a permissions restriction
+     */
+    public function get_user_permissions_filter($dbfield, $true_if_user = true) {
+        global $USER;
+
+        $cm_user_id   = cm_get_crlmuserid($USER->id);
+        $filter_array = php_report_filtering_get_active_filter_values($this->get_report_shortname(), 'userid',$this->filter);
+        $filter_user_id = (isset($filter_array[0]['value'])) ? $filter_array[0]['value'] : 0;
+
+        if ($filter_user_id == $cm_user_id && $this->execution_mode == php_report::EXECUTION_MODE_INTERACTIVE && $true_if_user === true) {
+            // always allow the user to see their own report but not necessarily schedule it
+            $permissions_filter = 'TRUE';
+        } else {
+            // obtain all course contexts where this user can view reports
+            $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
+            $permissions_filter = $contexts->get_filter($dbfield, 'user');
+        }
+
+        return $permissions_filter;
+    }
+
+    /**
      * Specifies available report filters
      * (empty by default but can be implemented by child class)
      *
@@ -148,40 +203,38 @@ class individual_user_report extends table_report {
      * @return  array                The list of available filters
      */
     function get_filters($init_data = true) {
+        global $USER;
+
         $filters = array();
-        $users = array();
 
-        if ($init_data) {
-            $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
-            $user_objects = usermanagement_get_users_recordset('name', 'ASC', 0, 0, '', $contexts);
+        // ELIS-3577 - Add the autocomplete user search filter
+        $autocomplete_opts = array(
+            'report' => $this->get_report_shortname(),
+            'table' => 'crlm_user',
+            'popup_title' => 'Select a User',
+            'label_template' => '[[firstname]] [[lastname]]',
+            'fields' => array('username', 'firstname', 'lastname', 'idnumber'),
+            'selection_enabled' => false,
+            'restriction_sql' => '',
+            'help' => array(
+                'individual_user_report',
+                get_string('displayname', $this->lang_file),
+                'rlreport_individual_user'
+            )
+        );
 
-            // If in interactive mode, user should have access to at least their own info
-            if ($this->execution_mode == php_report::EXECUTION_MODE_INTERACTIVE) {
-                $cm_user_id = cm_get_crlmuserid($this->userid);
-                $user_object = new user($cm_user_id);
-                $users[$user_object->id] = fullname($user_object) . ' (' . $user_object->idnumber . ')';
-            }
+        $permissions_filter = $this->get_user_permissions_filter('id', false);
+        $autocomplete_opts['selection_enabled'] = (!isset($permissions_filter->select) || $permissions_filter->select != 'FALSE') ? true : false;
+        $autocomplete_opts['restriction_sql'] = $permissions_filter;
 
-            if (!empty($user_objects)) {
-                // Create a list of users this user has permissions to view
-                foreach($user_objects as $user_object) {
-                    $users[$user_object->id] = $user_object->name .' ('. $user_object->idnumber .')';
-                }
-                $user_objects->close();
-            }
+        $last_user = $this->get_chosen_userid();
+        if (empty($last_user)) {
+            $cm_user_id = cm_get_crlmuserid($USER->id);
+            $autocomplete_opts ['defaults'] = array('label' => $USER->firstname.' '.$USER->lastname, 'id' => $cm_user_id);
         }
 
-        $filters[] = new generalized_filter_entry('userid', 'usr', 'id',
-                                                  get_string('filter_user', $this->lang_file),
-                                                  false, 'simpleselect',
-                                                  array('choices' => $users,
-                                                        'numeric' => true,
-                                                        'noany' => true,
-                                                        'help' => array('individual_user_report',
-                                                                        get_string('displayname', 'rlreport_individual_user'),
-                                                                        'rlreport_individual_user')
-                                                       )
-                                                 );
+        $filters[] = new generalized_filter_entry('userid', 'usr', 'id', get_string('filter_user', $this->lang_file),
+                                                  false, 'autocomplete', $autocomplete_opts);
 
         return $filters;
     }
@@ -372,31 +425,40 @@ class individual_user_report extends table_report {
      * @return  array   The report's main sql statement with optional params
      */
     function get_report_sql($columns) {
-        global $CFG, $USER;
+        global $USER;
 
         $cm_user_id = cm_get_crlmuserid($USER->id);
-        $filter_array = php_report_filtering_get_active_filter_values(
-                             $this->get_report_shortname(), 'userid', $this->filter);
-        $filter_user_id = (isset($filter_array[0]['value']))
-                        ? $filter_array[0]['value']
-                        : -1; // ELIS-4699: so not == to invalid cm/pm userid
 
-        $params = array();
-        $permissions_filter = '';
-        if ($filter_user_id != $cm_user_id || $this->execution_mode != php_report::EXECUTION_MODE_INTERACTIVE) {
+        $filter_array = php_report_filtering_get_active_filter_values($this->get_report_shortname(), 'userid', $this->filter);
+        // ELIS-4699: so not == to invalid cm/pm userid
+        $filter_user_id = (isset($filter_array[0]['value'])) ? $filter_array[0]['value'] : -1;
+
+        $params = array('p_completestatus' => STUSTATUS_PASSED);
+        $permissions_filter = 'TRUE ';
+
+        // ELIS-3993 -- Do not display any results if no user ID was supplied by the filter
+        if ($filter_user_id == -1) {
+            $permissions_filter = ' FALSE';
+        } else if ($filter_user_id != $cm_user_id || $this->execution_mode != php_report::EXECUTION_MODE_INTERACTIVE) {
             // obtain all course contexts where this user can view reports
             $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
-            //$permissions_filter = $contexts->sql_filter_for_context_level('usr.id', 'user');
             $filter_obj = $contexts->get_filter('id', 'user');
             $filter_sql = $filter_obj->get_sql(false, 'usr', SQL_PARAMS_NAMED);
+
             if (isset($filter_sql['where'])) {
-                $permissions_filter = ' WHERE '. $filter_sql['where'];
-                $params = $filter_sql['where_parameters'];
+                if ($filter_sql['where'] == 'FALSE') {
+                    // This user does not have permission to view the requested data
+                    $this->nopermission = true;
+                    $permissions_filter = 'FALSE';
+                } else {
+                    $permissions_filter = $filter_sql['where'];
+                    $params            += $filter_sql['where_parameters'];
+                }
             }
         }
 
         // Figure out the number of completed credits for the curriculum
-         $numcomplete_subquery = "SELECT sum(innerclsenr.credits)
+        $numcomplete_subquery = "SELECT sum(innerclsenr.credits)
                                  FROM {". student::TABLE ."} innerclsenr
                                  JOIN {". pmclass::TABLE ."} innercls ON innercls.id = innerclsenr.classid
                                  JOIN {". course::TABLE ."} innercrs ON innercls.courseid = innercrs.id
@@ -404,7 +466,7 @@ class individual_user_report extends table_report {
                                      ON innercurcrs.courseid = innercrs.id
                                  WHERE innerclsenr.userid = usr.id
                                      AND innercurcrs.curriculumid = cur.id
-                                     AND innerclsenr.completestatusid = " . STUSTATUS_PASSED ;
+                                     AND innerclsenr.completestatusid = :p_completestatus";
 
         // Main query
         $sql = "SELECT {$columns},
@@ -440,7 +502,7 @@ class individual_user_report extends table_report {
                     AND grd.userid = usr.id
                     AND grd.completionid = crscomp.id
                     AND grd.locked = 1
-           {$permissions_filter}
+                    WHERE {$permissions_filter}
                ";
 
         return array($sql, $params);

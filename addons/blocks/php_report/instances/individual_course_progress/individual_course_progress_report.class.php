@@ -30,9 +30,9 @@ require_once($CFG->dirroot .'/blocks/php_report/type/table_report.class.php');
 require_once($CFG->dirroot .'/elis/program/lib/deprecatedlib.php');
 
 class individual_course_progress_report extends table_report {
-    var $custom_joins = array();
-    var $lang_file = 'rlreport_individual_course_progress';
-
+    var $lang_file     = 'rlreport_individual_course_progress';
+    var $nopermission  = false;  // Set to TRUE if the user has no permission to view the request report
+    var $custom_joins  = array();
     var $field_default = array();
 
     /**
@@ -102,6 +102,10 @@ class individual_course_progress_report extends table_report {
 
         $header_array = array();
 
+        if ($this->nopermission) {
+            return $header_array;
+        }
+
         $cm_user_id = php_report_filtering_get_active_filter_values(
                           $this->get_report_shortname(), 'userid', $this->filter);
 
@@ -109,6 +113,7 @@ class individual_course_progress_report extends table_report {
         // Find all the clusters this user is in
         if (!empty($cm_user_id[0]['value'])) {
             $userid = (int)$cm_user_id[0]['value'];
+
             $user_obj = new user($userid);
             $user_obj->load();
 
@@ -170,6 +175,56 @@ class individual_course_progress_report extends table_report {
     }
 
     /**
+     * Gets the chosen userid from the filter information
+     *
+     * @return int the user id
+     */
+    function get_chosen_userid() {
+        $chosen_userid = '';
+
+        $report_filters = php_report_filtering_get_user_preferences($this->get_report_shortname());
+        if (!empty($report_filters) && is_array($report_filters)) {
+            foreach ($report_filters as $filter => $val) {
+                if ($filter === 'php_report_'.$this->get_report_shortname().'/'.'userid') {
+                    $chosen_userid = $val;
+                }
+            }
+        }
+
+        if (!empty($chosen_userid) && is_numeric($chosen_userid)) {
+            return $chosen_userid;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Gets the permissions restriction for the current user
+     *
+     * @param string $dbfield the field to restrict on
+     * @param boolean $true_if_user If true, always allow the user to view their own info
+     * @return string The SQL fragment to be used as a permissions restriction
+     */
+    public function get_user_permissions_filter($dbfield, $true_if_user = true) {
+        global $USER;
+
+        $cm_user_id   = cm_get_crlmuserid($USER->id);
+        $filter_array = php_report_filtering_get_active_filter_values($this->get_report_shortname(), 'userid',$this->filter);
+        $filter_user_id = (isset($filter_array[0]['value'])) ? $filter_array[0]['value'] : 0;
+
+        if ($filter_user_id == $cm_user_id && $this->execution_mode == php_report::EXECUTION_MODE_INTERACTIVE && $true_if_user === true) {
+            // always allow the user to see their own report but not necessarily schedule it
+            $permissions_filter = 'TRUE';
+        } else {
+            // obtain all course contexts where this user can view reports
+            $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
+            $permissions_filter = $contexts->get_filter($dbfield, 'user');
+        }
+
+        return $permissions_filter;
+    }
+
+    /**
      * Specifies available report filters
      * (empty by default but can be implemented by child class)
      *
@@ -179,56 +234,56 @@ class individual_course_progress_report extends table_report {
      * @return  array                The list of available filters
      */
     function get_filters($init_data = true) {
-        global $CFG;
+        global $CFG, $USER;
 
         $filters = array();
-        $users = array();
 
-        if ($init_data) {
-            $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
-            $user_objects = usermanagement_get_users_recordset('name', 'ASC', 0, 0, '', $contexts);
+        // ELIS-5807 - Add the autocomplete user search filter
+        $autocomplete_opts = array(
+            'report' => $this->get_report_shortname(),
+            'table' => 'crlm_user',
+            'popup_title' => 'Select a User',
+            'label_template' => '[[firstname]] [[lastname]]',
+            'fields' => array('username', 'firstname', 'lastname', 'idnumber'),
+            'selection_enabled' => false,
+            'restriction_sql' => '',
+            'help' => array(
+                'individual_user_report',
+                get_string('displayname', $this->lang_file),
+                'rlreport_individual_user'
+            )
+        );
 
-            // If in interactive mode, user should have access to at least their own info
-            if ($this->execution_mode == php_report::EXECUTION_MODE_INTERACTIVE) {
-                $cm_user_id = cm_get_crlmuserid($this->userid);
-                $user_object = new user($cm_user_id);
-                $users[$user_object->id] = fullname($user_object) .' ('. $user_object->idnumber .')';
-            }
+        $permissions_filter = $this->get_user_permissions_filter('id', false);
+        $autocomplete_opts['selection_enabled'] = (!isset($permissions_filter->select) || $permissions_filter->select != 'FALSE') ? true : false;
+        $autocomplete_opts['restriction_sql'] = $permissions_filter;
 
-            if (!empty($user_objects)) {
-                // Create a list of users this user has permissions to view
-                foreach ($user_objects as $user_object) {
-                    $users[$user_object->id] = $user_object->name .' ('.
-                                               $user_object->idnumber .')';
-                }
-                $user_objects->close();
-            }
+        $last_user = $this->get_chosen_userid();
+        if (empty($last_user)) {
+            $cm_user_id = cm_get_crlmuserid($USER->id);
+            $autocomplete_opts ['defaults'] = array('label' => $USER->firstname.' '.$USER->lastname, 'id' => $cm_user_id);
         }
 
-        $filters[] = new generalized_filter_entry('userid', 'crlmuser', 'id',
-                             get_string('filter_user', $this->lang_file),
-                             false, 'simpleselect',
-                             array('choices' => $users,
-                                   'numeric' => true,
-                                   'noany'   => true,
-                             'help' => array('individual_course_progress_user',
-                                             get_string('displayname', $this->lang_file),
-                                             $this->lang_file)
-                                                       )
-                         );
+        $filters[] = new generalized_filter_entry('userid', 'crlmuser', 'id', get_string('filter_user', $this->lang_file),
+                                                  false, 'autocomplete', $autocomplete_opts);
 
-        $field_list = array();
-        // Add block id to field list array
-        $field_list['block_instance'] = $this->id;
-        $field_list['reportname'] = $this->get_report_shortname();
-        $field_list['field_exceptions'] = array('_elis_course_pretest',
-                                                '_elis_course_posttest');
-        // Need help text
-        $field_list['help'] = array('individual_course_progress_field',
-                                    get_string('displayname', $this->lang_file),
-                                    $this->lang_file);
+        $field_list = array(
+            'block_instance'   => $this->id,  // Add block id to field list array
+            'reportname'       => $this->get_report_shortname(),
+            'field_exceptions' => array(
+                '_elis_course_pretest',
+                '_elis_course_posttest'
+            ),
+            'help'             => array(  // Need help text
+                'individual_course_progress_field',
+                get_string('displayname', $this->lang_file),
+                $this->lang_file
+            )
+        );
 
-        $filters[] = new generalized_filter_entry('field'. $this->id, 'field'. $this->id, 'id', get_string('selectcustomfields', $this->lang_file), false, 'custom_field_multiselect_values', $field_list);
+        $filters[] = new generalized_filter_entry('field'. $this->id, 'field'. $this->id, 'id',
+                                                  get_string('selectcustomfields', $this->lang_file), false,
+                                                  'custom_field_multiselect_values', $field_list);
 
         return $filters;
     }
@@ -278,6 +333,7 @@ class individual_course_progress_report extends table_report {
                 if ($archetype == MOD_ARCHETYPE_RESOURCE) {
                     $result[] = $modname;
                 }
+                $user_objects->close();
             }
         }
 
@@ -309,8 +365,7 @@ class individual_course_progress_report extends table_report {
         // Loop through these additional parameters - new columns, will  have to eventually pass the table etc...
         if (isset($filter_params) && is_array($filter_params)) {
             // Working with custom course fields - get all course fields
-            $context = context_level_base::get_custom_context_level('course', 'elis_program');
-            $fields = field::get_for_context_level($context)->to_array();
+            $fields = field::get_for_context_level(CONTEXT_ELIS_COURSE)->to_array();
 
             foreach ($filter_params as $custom_course_id) {
                 $custom_course_field = new field($custom_course_id);
@@ -352,7 +407,7 @@ class individual_course_progress_report extends table_report {
                           FROM {context} ctxt
                           JOIN {". $data_table ."} d
                             ON d.contextid = ctxt.id AND d.fieldid = {$custom_course_id}
-                          WHERE ctxt.contextlevel = {$context}
+                          WHERE ctxt.contextlevel = ".CONTEXT_ELIS_COURSE."
                             AND {$view_field_filter}) custom_{$custom_course_id}
                        ON cls.courseid = custom_{$custom_course_id}.{$course_id_field}", $params);
 
@@ -500,15 +555,25 @@ class individual_course_progress_report extends table_report {
                           : -1; // ELIS-4699: so not == to invalid cm/pm userid
 
         $permissions_filter = 'TRUE';
-        if ($filter_user_id != $cm_user_id || $this->execution_mode != php_report::EXECUTION_MODE_INTERACTIVE) {
+
+        // ELIS-3993 -- Do not display any results if no user ID was supplied by the filter
+        if ($filter_user_id == -1) {
+            $permissions_filter = ' FALSE';
+        } else if ($filter_user_id != $cm_user_id || $this->execution_mode != php_report::EXECUTION_MODE_INTERACTIVE) {
             // obtain all course contexts where this user can view reports
             $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
             //$permissions_filter = $contexts->sql_filter_for_context_level('crlmuser.id', 'user');
             $filter_obj = $contexts->get_filter('crlmuser.id', 'user');
             $filter_sql = $filter_obj->get_sql(false, 'crlmuser', SQL_PARAMS_NAMED);
             if (isset($filter_sql['where'])) {
-                $permissions_filter = $filter_sql['where'];
-                $params = $filter_sql['where_parameters'];
+                if ($filter_sql['where'] == 'FALSE') {
+                    // This user does not have permission to view the requested data
+                    $this->nopermission = true;
+                    $permissions_filter = ' FALSE';
+                } else {
+                    $permissions_filter = $filter_sql['where'];
+                    $params             = $filter_sql['where_parameters'];
+                }
             }
         }
 
@@ -584,8 +649,6 @@ class individual_course_progress_report extends table_report {
     function get_max_test_score_sql($field_shortname) {
         global $DB;
 
-        $course_context_level = context_level_base::get_custom_context_level('course', 'elis_program');
-
         if ($field_id = $DB->get_field('elis_field', 'id', array('shortname' => $field_shortname))) {
             $field = new field($field_id);
             $data_table = $field->data_table();
@@ -595,7 +658,7 @@ class individual_course_progress_report extends table_report {
                     FROM {'. $data_table ."} d
                     JOIN {context} ctxt
                       ON d.contextid = ctxt.id
-                     AND ctxt.contextlevel = {$course_context_level}
+                     AND ctxt.contextlevel = ".CONTEXT_ELIS_COURSE."
                     JOIN {". coursecompletion::TABLE .'} comp
                       ON d.data = comp.idnumber
                     JOIN {'. pmclass::TABLE .'} class

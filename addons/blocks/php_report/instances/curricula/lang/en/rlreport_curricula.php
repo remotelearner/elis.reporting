@@ -16,10 +16,9 @@ $string['date_format'] = '%m/%d/%Y';
 
 $string['filter_cluster'] = 'Choose an organization/User Set or all organization/User Sets';
 //$string['filter_cluster_name'] = 'User Set Name';
-$string['filter_profile_match'] = 'Profile Match filter'; // TBD
+$string['filter_program'] = 'Select the program or all programs';
 $string['filter_user_match'] = 'User Match filter'; // TBD
 $string['fld_fullname'] = 'View users whose profile contains (<b>leave blank to show all users</b>):';
-$string['footer'] = ''; // TBD
 
 $string['grouping_idnumber'] = 'ID Number';
 $string['grouping_fullname'] = 'User Name';
@@ -27,7 +26,7 @@ $string['grouping_curriculum'] = 'Program';
 $string['grouping_completed'] = 'Completed';
 $string['grouping_not_completed'] = 'Not Completed';
 
-$string['na'] = 'NA';
+$string['na'] = 'N/A';
 $string['not_completed'] = 'Not Completed';
 
 $string['pluginname'] = 'Programs Report';

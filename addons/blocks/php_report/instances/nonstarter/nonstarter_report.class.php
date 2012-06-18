@@ -300,10 +300,7 @@ class nonstarter_report extends table_report {
                 array(
                     'choices'     => $this->_fields,
                     'notadvanced' => array('fullname'),
-                    'extra'       => true, // include all extra profile fields
-                    'heading'     => get_string('filter_profile_match',
-                                                'rlreport_nonstarter'),
-                    'footer'      => get_string('footer', 'rlreport_nonstarter')
+                    'extra'       => true // include all extra profile fields
                 )
             );
 
