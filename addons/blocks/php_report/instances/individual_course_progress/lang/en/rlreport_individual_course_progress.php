@@ -8,11 +8,14 @@ $string['column_class_id'] = 'Class ID';
 $string['column_course'] = 'Course';
 $string['column_discussion_posts'] = 'Discussion Posts';
 $string['column_end_date'] = 'End Date';
+$string['column_los_prefix'] = 'LO';
+$string['columns_options_heading'] = 'Optional report columns:';
 $string['column_posttest_score'] = 'Post-test Score';
 $string['column_pretest_score'] = 'Pretest Score';
 $string['column_progress'] = 'Completed Items';
 $string['column_resources_accessed'] = 'Resources Accessed';
 $string['column_start_date'] = 'Start Date';
+$string['column_totalscore'] = 'Total score';
 $string['course_field'] = 'Course Field';
 $string['course_field_title'] = 'Custom Course Fields';
 $string['customfields'] = 'Custom fields.';
@@ -42,6 +45,9 @@ $string['individual_course_progress_user_help'] = '<p align="center"><b>Individu
 
 <p>Please select a user from this pulldown.</p>';
 $string['invalidpermission'] = 'You do not have permission to view this report';
+
+$string['los_label'] = 'Show all Learning Objectives';
+
 $string['move_down'] = 'Move down.';
 $string['move_up'] = 'Move up.';
 $string['na'] = 'N/A';
@@ -51,10 +57,14 @@ $string['no_test_symbol'] = '---';
 $string['nofieldsfound'] = 'No custom fields were found.';
 $string['not_available'] = 'Not Available';
 $string['of'] = '{$a->value} of {$a->total}';
+$string['optional_columns'] = 'Optional report columns';
+$string['optional_columns_help'] = '<p>Select optional columns to display on report.</p>';
 $string['percent_symbol'] = '%';
 $string['pluginname'] = 'Individual Course Progress Report';
+$string['preposttest_label'] = 'Show Pre-Test/Post Test';
 $string['remove_fields'] = 'Remove Fields';
 $string['remove_this'] = 'Remove this custom field.';
 $string['selectcustomfields'] = 'Select a custom course field to add to your report';
+$string['totalscore_label'] = 'Show current total score';
 $string['transform_column_in_progress'] = 'In Progress';
 $string['yes'] = 'Yes';

@@ -543,6 +543,7 @@ class individual_user_report extends table_report {
     /**
      * Determines whether the current user can view this report, based on being logged in
      * and php_report:view capability
+     *
      * @return  boolean  True if permitted, otherwise false
      */
     function can_view_report() {
@@ -551,20 +552,16 @@ class individual_user_report extends table_report {
             return false;
         }
 
-        $this->require_dependencies();
-        $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
-        if (!$contexts->is_empty()) {
-            return true;
+        if ($this->execution_mode == php_report::EXECUTION_MODE_SCHEDULED) {
+            $this->require_dependencies();
+
+            //when scheduling, make sure the current user has the scheduling capability for SOME user
+            $contexts = get_contexts_by_capability_for_user('user', $this->access_capability, $this->userid);
+            return !$contexts->is_empty();
         }
 
-        // Since user is logged-in AND HAVE VALID PM/CM userid, then they should
-        // always be able to see their own courses/classes, but NOT schedule
-        if ($this->execution_mode != php_report::EXECUTION_MODE_SCHEDULED
-            && cm_get_crlmuserid($this->userid)) {
-            return true;
-        }
-
-        return false;
+        // Since user is logged in they should always be able to see their own courses/classes
+        return true;
     }
 
     /**
