@@ -628,7 +628,6 @@ abstract class gas_gauge_table_report extends table_report {
                                 "{$effective_url}&amp;sort={$this->sort}&amp;dir={$this->dir}&amp;" .
                                 "perpage={$this->perpage}&amp;gas_gauge_page={$this->gas_gauge_page}{$args}&amp;");
 
-        echo $OUTPUT->render($paging_bar);
         echo $this->get_interactive_filter_display();
 
         return $output;
@@ -659,7 +658,6 @@ abstract class gas_gauge_table_report extends table_report {
                                 "{$effective_url}&amp;sort={$this->sort}&amp;dir={$this->dir}&amp;".
                                 "perpage={$this->perpage}&amp;gas_gauge_page={$this->gas_gauge_page}{$args}&amp;");
 
-        $output .= $OUTPUT->render($paging_bar);
         return $output;
     }
 

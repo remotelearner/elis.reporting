@@ -493,16 +493,6 @@ class user_class_completion_report extends table_report {
 
                     //store the data type
                     $this->_fielddatatypes[$fieldid] = $field->data_type();
-// TODO: IS THIS NEEDED? JJF (Moodle 2.2)
-                    //store the context level that's represented by this field
-                    $level = CONTEXT_ELIS_PROGRAM;
-                    if ($DB->record_exists('elis_field_contextlevels',
-                                 array('fieldid'      => $fieldid,
-                                       'contextlevel' => $level))) {
-                        $this->_fielddatacontexts[$fieldid] = 'curriculum';
-                    } else {
-                        $this->_fielddatacontexts[$fieldid] = 'user';
-                    }
                 }
             }
         }

@@ -51,7 +51,7 @@ abstract class table_report extends php_report {
     var $data;           // ARRAY - An array of table data.
     var $numrecs;        // INT - The total number of results found.
     var $baseurl;        // STRING - The base URL pointing to this report.
-    var $pagerl;         // STRING - The paging URL for this report.
+    var $pageurl;        // STRING - The paging URL for this report.
     var $sort;           // STRING - The column to sort by.
     var $dir;            // STRING - The direction of sorting.
     var $page;           // INT - The page number being displayed.
@@ -550,8 +550,14 @@ abstract class table_report extends php_report {
                     $columnicon = $this->dir == "ASC" ? "t/down":"t/up";
                     $columnicon = " <img src=\"".$OUTPUT->pix_url($columnicon)."'\" alt=\"\" />";
                 }
-                $args = '&amp;sort=' . $column . '&amp;dir=' . $columndir;
-                $column_text = '<a href="' . $this->effective_url . $args . '">' . $header . '</a>' . $columnicon;
+                $args = '&amp;sort='. $column .'&amp;dir='. $columndir;
+                if (isset($this->page)) {
+                    $args .= '&amp;page='. $this->page;
+                }
+                if (!empty($this->perpage)) {
+                    $args .= '&amp;perpage='. $this->perpage;
+                }
+                $column_text = '<a href="'. $this->effective_url . $args .'">'. $header .'</a>'. $columnicon;
             } else {
                 $column_text = $header;
             }
