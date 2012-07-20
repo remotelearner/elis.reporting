@@ -349,8 +349,19 @@ function php_report_filtering_set_user_preferences($preferences, $temporary, $re
         $SESSION->php_report_default_params = array();
     }
 
-    //store all preference values
     if (!empty($preferences)) {
+
+        // Old session data from a given report needs to be removed
+        $params = $SESSION->php_report_default_params;
+        $prefix = 'php_report_' . $report_name . '/';
+        foreach ($params as $key => $val) {
+            if (strpos($key, $prefix) === 0) {
+                $field_name = substr($key, strlen($prefix));
+                unset($SESSION->php_report_default_params[$key]);
+            }
+        }
+
+        // Add the new data from a given report to the session
         foreach ($preferences as $key => $value) {
             $SESSION->php_report_default_params[$key] = $value;
         }

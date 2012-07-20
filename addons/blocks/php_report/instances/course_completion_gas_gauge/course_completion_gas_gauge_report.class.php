@@ -509,21 +509,18 @@ class course_completion_gas_gauge_report extends gas_gauge_table_report {
         //number of completed users
         $completed_sql = "{$base_sql}
                           AND stu.completestatusid = " . STUSTATUS_PASSED;
-
         $completed_field = $this->get_field_sql($completed_sql, $params);
 
         //total number of users
         $total_sql = "{$base_sql}";
-
-        $total_field = $this->get_field_sql($total_sql, $params);
-
+        $this->total_field = $this->get_field_sql($total_sql, $params);
         //avoid dividing by zero
-        if (empty($total_field)) {
+        if (empty($this->total_field)) {
             return 0;
         }
 
         //return the percentage of distinct users who are completed
-        return $completed_field / $total_field * 100;
+        return $completed_field / $this->total_field * 100;
     }
 
     /**
@@ -580,18 +577,20 @@ class course_completion_gas_gauge_report extends gas_gauge_table_report {
 
         //course description, including course name
         $course_description = get_string('course_description', 'rlreport_course_completion_gas_gauge', $course_name);
-        //general progress status message
 
-        if ($this->gas_gauge_value === NULL) {
-            $display_value = get_string('na', 'rlreport_course_completion_gas_gauge');
+        if (empty($this->total_field)) {
+            $course_progress = get_string('no_enrolments', 'rlreport_course_completion_gas_gauge');
         } else {
-            $display_value = number_format($this->gas_gauge_value, 1);
+            //general progress status message
+            if ($this->gas_gauge_value === NULL) {
+                $display_value = get_string('na', 'rlreport_course_completion_gas_gauge');
+            } else {
+                $display_value = number_format($this->gas_gauge_value, 1);
+            }
+            $course_progress = get_string('course_progress', 'rlreport_course_completion_gas_gauge', $display_value);
         }
 
-        $course_progress = get_string('course_progress', 'rlreport_course_completion_gas_gauge', $display_value);
-
-        return array($course_description,
-                     $course_progress);
+        return array($course_description, $course_progress);
     }
 
     /**

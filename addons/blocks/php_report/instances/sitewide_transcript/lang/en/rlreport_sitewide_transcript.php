@@ -11,9 +11,7 @@ $string['column_status'] = 'Status';
 $string['date_format'] = 'm/d/Y';
 $string['displayname'] = 'Sitewide Transcript Report';
 
-$string['filter_profile_match'] = 'View users who\'s profile contains (leave blank to show all users):';
 $string['filter_user_match'] = 'Use Advanced User Filtering'; // TBD: in filter!
-$string['footer'] = 'sitewide transcript report end';
 
 $string['grouping_idnumber'] = 'ID Number: ';
 $string['grouping_studentname'] = 'Student Name: ';

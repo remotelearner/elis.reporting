@@ -1001,6 +1001,147 @@ abstract class php_report {
                '</form>';
     }
 
+    /**
+     * PHP reports paging bar - so we can add 'onclick=start_throbber()',
+     * and for gas_gauge reports tool-tips, etc.
+     *
+     * Prints a single paging bar to provide access to other pages  (usually in a search)
+     * (Override core Moodle functionality to add the possibility to change the page label)
+     *
+     * @param int $totalcount    The total number of entries available to be paged through
+     * @param int $page          The page you are currently viewing
+     * @param int $perpage       The number of entries that should be shown per page
+     * @param mixed $baseurl     If this  is a string then it is the url which will be appended with $pagevar, an equals sign and the page number.
+     *                           If this is a moodle_url object then the pagevar param will be replaced by the page no, for each page.
+     * @param string $pagevar This is the variable name that you use for the page number in your code (ie. 'tablepage', 'blogpage', etc)
+     * @param bool $nocurr       do not display the current page as a link
+     * @param bool $return       whether to return an output string or echo now
+     * @param string $page_label A label used to override "Page"
+     * @param array $tooltip_sql optional array(sql, params) for tooltips
+     * @param array $attributes  optional attributes for page links
+     * @return bool or string
+     */
+    function print_paging_bar($totalcount, $page, $perpage, $baseurl,
+                 $pagevar = 'page', $nocurr = false, $return = false,
+                 $page_label = '', $tooltip_sql = null, $attributes = array()) {
+        $maxdisplay = 18;
+        $output = '';
+        if ($totalcount > $perpage) {
+            $attributes = array_merge(array('onclick' => 'start_throbber();'),
+                                      $attributes);
+            $output .= '<div class="paging">';
+            if (empty($page_label)) {
+                //use the default label
+                $output .= get_string('page') .':';
+            } else {
+                //custom label specified
+                $output .= $page_label . ':';
+            }
+            if ($page > 0) {
+                $pagenum = $page - 1;
+                if (!empty($tooltip_sql)) {
+                    $alt_title = $this->get_field_sql($tooltip_sql[0], $tooltip_sql[1], $pagenum);
+                    $attributes['alt'] = $alt_title;
+                    $attributes['title'] = $alt_title;
+                }
+                $attrs = array_tostring($attributes);
+                if (!is_a($baseurl, 'moodle_url')){
+                    $output .= '&nbsp;(<a class="previous" href="'. $baseurl . $pagevar .'='. $pagenum .'" '. $attrs .'>'. get_string('previous') .'</a>)&nbsp;';
+                } else {
+                    $output .= '&nbsp;(<a class="previous" href="'. $baseurl->out(false, array($pagevar => $pagenum)).'" '. $attrs .'>'. get_string('previous') .'</a>)&nbsp;';
+                }
+            }
+            if ($perpage > 0) {
+                $lastpage = ceil($totalcount / $perpage);
+            } else {
+                $lastpage = 1;
+            }
+            if ($page > 15) {
+                if (!empty($tooltip_sql)) {
+                    $alt_title = $this->get_field_sql($tooltip_sql[0], $tooltip_sql[1], 0);
+                    $attributes['alt'] = $alt_title;
+                    $attributes['title'] = $alt_title;
+                }
+                $attrs = array_tostring($attributes);
+                $startpage = $page - 10;
+                if (!is_a($baseurl, 'moodle_url')){
+                    $output .= '&nbsp;<a href="'. $baseurl . $pagevar .'=0" '. $attrs .'>1</a>&nbsp;...';
+                } else {
+                    $output .= '&nbsp;<a href="'. $baseurl->out(false, array($pagevar => 0)).'" '. $attrs .'>1</a>&nbsp;...';
+                }
+            } else {
+                $startpage = 0;
+            }
+            $currpage = $startpage;
+            $displaycount = $displaypage = 0;
+            while ($displaycount < $maxdisplay and $currpage < $lastpage) {
+                $displaypage = $currpage + 1;
+                if ($page == $currpage && empty($nocurr)) {
+                    $output .= '&nbsp;&nbsp;'. $displaypage;
+                } else {
+                    if (!empty($tooltip_sql)) {
+                        $alt_title = $this->get_field_sql($tooltip_sql[0], $tooltip_sql[1], $currpage);
+                        $attributes['alt'] = $alt_title;
+                        $attributes['title'] = $alt_title;
+                    }
+                    $attrs = array_tostring($attributes);
+                    if (!is_a($baseurl, 'moodle_url')){
+                        $output .= '&nbsp;&nbsp;<a href="'. $baseurl . $pagevar .'='. $currpage .'" '. $attrs .'>'. $displaypage .'</a>';
+                    } else {
+                        $output .= '&nbsp;&nbsp;<a href="'. $baseurl->out(false, array($pagevar => $currpage)).'" '. $attrs .'>'. $displaypage .'</a>';
+                    }
+                }
+                $displaycount++;
+                $currpage++;
+            }
+            if ($currpage < $lastpage) {
+                $lastpageactual = $lastpage - 1;
+                if (!empty($tooltip_sql)) {
+                    $alt_title = $this->get_field_sql($tooltip_sql[0], $tooltip_sql[1], $lastpageactual);
+                    $attributes['alt'] = $alt_title;
+                    $attributes['title'] = $alt_title;
+                }
+                $attrs = array_tostring($attributes);
+                if (!is_a($baseurl, 'moodle_url')){
+                    $output .= '&nbsp;...&nbsp;<a href="'. $baseurl . $pagevar .'='. $lastpageactual .'" '. $attrs .'>'. $lastpage .'</a>&nbsp;';
+                } else {
+                    $output .= '&nbsp;...&nbsp;<a href="'. $baseurl->out(false, array($pagevar => $lastpageactual)).'" '. $attrs .'>'. $lastpage .'</a>&nbsp;';
+                }
+            }
+            $pagenum = $page + 1;
+            if ($pagenum != $displaypage) {
+                if (!empty($tooltip_sql)) {
+                    $alt_title = $this->get_field_sql($tooltip_sql[0], $tooltip_sql[1], $pagenum);
+                    $attributes['alt'] = $alt_title;
+                    $attributes['title'] = $alt_title;
+                }
+                $attrs = array_tostring($attributes);
+                if (!is_a($baseurl, 'moodle_url')){
+                    $output .= '&nbsp;&nbsp;(<a class="next" href="'. $baseurl . $pagevar .'='. $pagenum .'" '. $attrs .'>'. get_string('next') .'</a>)';
+                } else {
+                    $output .= '&nbsp;&nbsp;(<a class="next" href="'. $baseurl->out(false, array($pagevar => $pagenum)) .'" '. $attrs .'>'. get_string('next') .'</a>)';
+                }
+            }
+            $output .= '</div>';
+        }
+
+        if ($return) {
+            return $output;
+        }
+
+        echo $output;
+        return true;
+    }
+
+}
+
+// Helper function for php_report::print_paging_bar()
+function array_tostring($ar) {
+    $ret = '';
+    foreach ($ar as $key => $val) {
+        $ret .= " {$key}=\"{$val}\"";
+    }
+    return $ret;
 }
 
 /**

@@ -98,8 +98,6 @@ class class_roster_report extends table_report {
     function get_filters($init_data = true) {
         global $CFG;
 
-        $filter_array = array();
-
         // Fetch array of allowed classes
         $classes_array = array();
         $contexts = get_contexts_by_capability_for_user('class', $this->access_capability, $this->userid);
@@ -108,7 +106,7 @@ class class_roster_report extends table_report {
             $classes_array[$cmclass->id] = $cmclass->crsname .' - '. $cmclass->idnumber;
         }
 
-        $filter_array[] = new generalized_filter_entry('classid', 'cls', 'id',
+        $class_filter = new generalized_filter_entry('classid', 'cls', 'id',
                                   get_string('filter_course_class', $this->lang_file),
                                   false, 'courseclassselect',
                                   array('default'     => NULL,
@@ -120,7 +118,96 @@ class class_roster_report extends table_report {
                                        )
                               );
 
-        return $filter_array;
+        //columns checkboxes
+        $userset_label = get_string('column_option_cluster', $this->lang_file);
+        $idnumber_label = get_string('column_option_idnumber', $this->lang_file);
+        $username_label = get_string('column_option_username', $this->lang_file);
+        $mi_label = get_string('column_option_mi', $this->lang_file);
+        $email2_label = get_string('column_option_email2', $this->lang_file);
+        $address_label = get_string('column_option_address', $this->lang_file);
+        $address2_label = get_string('column_option_address2', $this->lang_file);
+        $city_label = get_string('column_option_city', $this->lang_file);
+        $state_label = get_string('column_option_state', $this->lang_file);
+        $postalcode_label = get_string('column_option_postalcode', $this->lang_file);
+        $country_label = get_string('column_option_country', $this->lang_file);
+        $phone_label = get_string('column_option_phone', $this->lang_file);
+        $phone2_label = get_string('column_option_phone2', $this->lang_file);
+        $fax_label = get_string('column_option_fax', $this->lang_file);
+        $birthdate_label = get_string('column_option_birthdate', $this->lang_file);
+        $gender_label = get_string('column_option_gender', $this->lang_file);
+        $language_label = get_string('column_option_language', $this->lang_file);
+        $transfercredits_label = get_string('column_option_transfercredits', $this->lang_file);
+        $comments_label = get_string('column_option_comments', $this->lang_file);
+        $notes_label = get_string('column_option_notes', $this->lang_file);
+        $inactive_label = get_string('column_option_inactive', $this->lang_file);
+        $heading_label = get_string('columns_options_heading', $this->lang_file);
+
+        $choices = array('cluster'         => $userset_label,
+                         'idnumber'        => $idnumber_label,
+                         'username'        => $username_label,
+                         'mi'              => $mi_label,
+                         'email2'          => $email2_label,
+                         'address'         => $address_label,
+                         'address2'        => $address2_label,
+                         'city'            => $city_label,
+                         'state'           => $state_label,
+                         'postalcode'             => $postalcode_label,
+                         'country'         => $country_label,
+                         'phone'           => $phone_label,
+                         'phone2'          => $phone2_label,
+                         'fax'             => $fax_label,
+                         'birthdate'       => $birthdate_label,
+                         'gender'          => $gender_label,
+                         'language'        => $language_label,
+                         'transfercredits' => $transfercredits_label,
+                         'comments'        => $comments_label,
+                         'notes'           => $notes_label);
+        if (elis::$config->elis_program->legacy_show_inactive_users) {
+            $choices['inactive'] = $inactive_label;
+        }
+
+        $checked = array();
+        $advanced = array('cluster',
+                         'idnumber',
+                         'username',
+                         'mi',
+                         'email2',
+                         'address',
+                         'address2',
+                         'city',
+                         'state',
+                         'postalcode',
+                         'country',
+                         'phone',
+                         'phone2',
+                         'fax',
+                         'birthdate',
+                         'gender',
+                         'language',
+                         'transfercredits',
+                         'comments',
+                         'notes');
+        if (elis::$config->elis_program->legacy_show_inactive_users) {
+            $advanced[] = 'inactive';
+        }
+
+        $columns_options = array('choices'    => $choices,
+                                 'checked'    => $checked,
+                                 'advanced'   => $advanced,
+                                 'allowempty' => true,
+                                 'heading'    => $heading_label,
+                                 'nofilter'   => true,
+                                 'help' => array('class_roster_options',
+                                                        get_string('filter_options', $this->lang_file),
+                                                        $this->lang_file));
+
+        //columns checkboxes
+        $columns_heading = get_string('columns_options_heading', $this->lang_file);
+        $columns_filter = new generalized_filter_entry('columns', '', '', $columns_heading, false,
+                                                       'checkboxes',   $columns_options);
+
+
+        return array($class_filter, $columns_filter);
     }
 
     /**
@@ -130,23 +217,64 @@ class class_roster_report extends table_report {
      * @return  table_report_column array  The list of report columns
      */
     function get_columns() {
-        return array(
-                     new table_report_column('usr.lastname AS r_student',
+        $student = new table_report_column('usr.lastname AS r_student',
                              get_string('column_student', $this->lang_file),
                              'cssstudent', 'left', true, true, true,
-                             array(php_report::$EXPORT_FORMAT_PDF, php_report::$EXPORT_FORMAT_HTML)),
-                     new table_report_column('usr.lastname AS lastname',
+                             array(php_report::$EXPORT_FORMAT_PDF, php_report::$EXPORT_FORMAT_HTML));
+        $studentlastname = new table_report_column('usr.lastname AS lastname',
                              get_string('column_student_lastname', $this->lang_file),
                              'cssstudent', 'left', true, true, true,
-                             array(php_report::$EXPORT_FORMAT_CSV, php_report::$EXPORT_FORMAT_EXCEL)),
-                     new table_report_column('usr.firstname AS firstname',
+                             array(php_report::$EXPORT_FORMAT_CSV, php_report::$EXPORT_FORMAT_EXCEL));
+        $studentfirstname = new table_report_column('usr.firstname AS firstname',
                              get_string('column_student_firstname', $this->lang_file),
                              'cssstudent', 'left', true, true, true,
-                             array(php_report::$EXPORT_FORMAT_CSV, php_report::$EXPORT_FORMAT_EXCEL)),
-                     new table_report_column('usr.email AS r_email',
+                             array(php_report::$EXPORT_FORMAT_CSV, php_report::$EXPORT_FORMAT_EXCEL));
+        $email = new table_report_column('usr.email AS r_email',
                                              get_string('column_email', $this->lang_file),
-                                             'cssemail', 'left', true)
-                    );
+                                             'cssemail', 'left', true);
+        $result = array($student, $studentlastname, $studentfirstname, $email);
+        $advanced = array('cluster',
+                         'idnumber',
+                         'username',
+                         'mi',
+                         'email2',
+                         'address',
+                         'address2',
+                         'city',
+                         'state',
+                         'postalcode',
+                         'country',
+                         'phone',
+                         'phone2',
+                         'fax',
+                         'birthdate',
+                         'gender',
+                         'language',
+                         'transfercredits',
+                         'comments',
+                         'notes');
+        if (elis::$config->elis_program->legacy_show_inactive_users) {
+            $advanced[] = 'inactive';
+        }
+        foreach($advanced as $column) {
+            $value = php_report_filtering_get_active_filter_values($this->get_report_shortname(),
+                                                                "columns_".$column,$this->filter);
+            if (($value[0]['value'] != 0)) {
+                $optional_cols[$column] = $value[0]['value'];
+                //add columns
+                if ($column == 'cluster') {
+                    $result[] = new table_report_column('GROUP_CONCAT(DISTINCT clst.name ORDER BY clst.name ASC SEPARATOR \',\') AS r_clst_name',
+                                get_string('column_option_cluster', $this->lang_file),
+                                'csscluster', 'left', true);
+                } else {
+                    $result[] = new table_report_column('usr.'.$column.' AS r_'.$column,
+                                get_string('column_option_'.$column, $this->lang_file),
+                                'css'.$column, 'left', true);
+                }
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -262,6 +390,49 @@ class class_roster_report extends table_report {
         $user->lastname = $record->r_student;
         $fullname = fullname($user);
 
+        if (property_exists($record,'r_clst_name')) {
+            //reformat userset name(s)
+            if (empty($record->r_clst_name)) {
+                $record->r_clst_name = get_string('na','block_php_report');
+            } elseif ($export_format == php_report::$EXPORT_FORMAT_EXCEL ||
+                $export_format == php_report::$EXPORT_FORMAT_CSV) {
+                $record->r_clst_name = str_replace(',','/',$record->r_clst_name);
+            } else {
+                $record->r_clst_name = str_replace(',','<br>',$record->r_clst_name);
+            }
+        }
+
+        if (isset($record->r_country)) {
+            //get readable country
+            $countries = get_string_manager()->get_list_of_countries();
+            if (isset($countries[$record->r_country])) {
+                $record->r_country = $countries[$record->r_country];
+            }
+        }
+
+        if (isset($record->r_language)) {
+            //get readable language
+            $languages = get_string_manager()->get_list_of_languages();
+            if (isset($languages[$record->r_language])) {
+                $record->r_language = $languages[$record->r_language];
+            }
+        }
+
+        if (isset($record->r_birthdate)) {
+            //reformat the birthdate
+            $record->r_birthdate = date('d F Y', strtotime($record->r_birthdate));
+        }
+
+        if (isset($record->r_gender)) {
+            //get readable gender
+            $record->r_gender = $record->r_gender == 'F' ? get_string('female','elis_program'):get_string('male','elis_program');
+        }
+
+        if (isset($record->r_inactive)) {
+            //reformat inactive
+            $record->r_inactive = $record->r_inactive ? get_string('yes'):get_string('no');
+        }
+
         if ($export_format == php_report::$EXPORT_FORMAT_HTML) {
             $userpage = new userpage(array('id' => $record->cmuserid, 'action' => 'view'));
             $record->r_student = '<span class="external_report_link"><a href="'
@@ -286,7 +457,6 @@ class class_roster_report extends table_report {
         $contexts = get_contexts_by_capability_for_user('class', $this->access_capability, $this->userid);
 
         //make sure we only count classes within those contexts
-        //$permissions_filter = $contexts->sql_filter_for_context_level('cls.id', 'class');
         $filter_obj = $contexts->get_filter('id', 'class');
         $filter_sql = $filter_obj->get_sql(false, 'cls', SQL_PARAMS_NAMED);
         $where = array();
@@ -304,10 +474,15 @@ class class_roster_report extends table_report {
                 FROM {". student::TABLE .'} clsenr
                 JOIN {'. user::TABLE .'} usr
                     ON usr.id = clsenr.userid
+           LEFT JOIN {'. clusterassignment::TABLE .'} usrclst
+                    ON usr.id = usrclst.userid
+           LEFT JOIN {'. userset::TABLE .'} clst
+                    ON usrclst.clusterid = clst.id
                 JOIN {'. pmclass::TABLE .'} cls
                     ON cls.id = clsenr.classid
            LEFT JOIN {'. course::TABLE .'} crs
                     ON crs.id = cls.courseid
+
                ';
 
         if (empty(elis::$config->elis_program->legacy_show_inactive_users)) {
@@ -316,10 +491,19 @@ class class_roster_report extends table_report {
         if (!empty($where)) {
             $sql .= 'WHERE '. implode(' AND ', $where);
         }
-
         return array($sql, $params);
     }
 
+     /**
+     * Specifies the fields to group by in the report
+     * (needed so we can wedge filter conditions in after the main query)
+     *
+     * @return  string  Comma-separated list of columns to group by,
+     *                  or '' if no grouping should be used
+     */
+    function get_report_sql_groups() {
+        return 'clsenr.userid';
+    }
     /**
      * Determines whether the current user can view this report, based on being logged in
      * and php_report:view capability

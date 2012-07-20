@@ -28,6 +28,8 @@ $string['filter_inactive_no'] = 'No';
 $string['filter_inactive_yes'] = 'Yes';
 
 $string['na'] = 'N/A';
+$string['no_enrolments'] = 'No enrolments for course';
+
 $string['percent_symbol'] = '%';
 $string['pluginname'] = 'Course Completion Gas Gauge Report';
 

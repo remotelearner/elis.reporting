@@ -29,11 +29,11 @@ defined('MOODLE_INTERNAL') || die();
 $string['displayname'] = 'User Class Completion Details Report';
 
 $string['column_classidnumber'] = 'Class';
-$string['column_classrole'] = 'Class Role';
+$string['column_classrole'] = 'Class Assignment';
 $string['column_classstartdate'] = 'Start Date (MM/DD/YYYY)';
 $string['column_completion'] = 'Status';
 $string['column_completiondate'] = 'Completion Date';
-$string['column_completionelements'] = 'Completion Elements';
+$string['column_completionelements'] = 'Learning Objectives';
 $string['column_coursename'] = 'Course';
 $string['column_credits'] = 'Credits Earned';
 $string['column_curriculumname'] = 'Program';

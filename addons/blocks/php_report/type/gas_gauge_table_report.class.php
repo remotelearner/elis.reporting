@@ -78,6 +78,9 @@ abstract class gas_gauge_table_report extends table_report {
     //if no get_gas_gauge_max_value is not properly implemented
     var $static_max_value = 100;
 
+    //total field to indicate when no enrolments => 0
+    var $total_field;
+
     /**
      * Contructor.
      *
@@ -357,19 +360,17 @@ abstract class gas_gauge_table_report extends table_report {
      * @param $id
      */
     function print_gas_gauge($id) {
-        global $CFG;
+        if (!empty($this->total_field)) {
+            global $CFG;
+            $radius = PHP_REPORT_GAS_GAUGE_MAXIMUM_WIDTH;
 
-        $radius = PHP_REPORT_GAS_GAUGE_MAXIMUM_WIDTH;
+            //load up the color palette
+            $palette = $this->get_gas_gauge_color_palette();
 
-        //load up the color palette
-        $palette = $this->get_gas_gauge_color_palette();
-
-        //image tag points to a php script that uses the necessary measures are parameters
-        return '<img src="' . $CFG->wwwroot . '/blocks/php_report/gas_gauge_output.php?value=' . $this->gas_gauge_value .
-                                                                                     '&total=' . $this->gas_gauge_max_value .
-                                                                                     '&radius=' . $radius .
-                                                                                     '&palette=' . urlencode(base64_encode(serialize($palette))) .
-                                                                                     '" class="php_report_gas_gauge_image"/>';
+            //image tag points to a php script that uses the necessary measures are parameters
+            return '<img src="'. $CFG->wwwroot .'/blocks/php_report/gas_gauge_output.php?value='. $this->gas_gauge_value .'&total='. $this->gas_gauge_max_value . '&radius='. $radius .'&palette='. urlencode(base64_encode(serialize($palette))) .'" class="php_report_gas_gauge_image"/>';
+        }
+        return '<br/>';
     }
 
     /**
@@ -401,8 +402,10 @@ abstract class gas_gauge_table_report extends table_report {
 
         //similar to tabular paging but changes gas gauge page
         $output .= $this->print_paging_bar($this->num_gas_gauge_pages, $this->gas_gauge_page, 1,
-                                          "{$effective_url}&amp;sort={$this->sort}&amp;dir={$this->dir}&amp;" .
-                                          "perpage={$this->perpage}" . $args . "&amp;", 'gas_gauge_page', false, true, $this->get_gas_gauge_page_label());
+                           "{$effective_url}&amp;sort={$this->sort}&amp;dir={$this->dir}&amp;" .
+                           "perpage={$this->perpage}" . $args . "&amp;", 'gas_gauge_page',
+                            false, true, $this->get_gas_gauge_page_label(),
+                            $this->get_page_tooltip_sql()) .'<br/>'; // TBD
 
         return $output;
     }
@@ -621,9 +624,9 @@ abstract class gas_gauge_table_report extends table_report {
         }
 
         //similar to parent class, but maintains gas gauge page
-        $paging_bar = new paging_bar($this->numrecs, $this->page, $this->perpage,
-                                    "{$effective_url}&amp;sort={$this->sort}&amp;dir={$this->dir}&amp;" .
-                                    "perpage={$this->perpage}&amp;gas_gauge_page={$this->gas_gauge_page}{$args}&amp;");
+        $this->print_paging_bar($this->numrecs, $this->page, $this->perpage,
+                                "{$effective_url}&amp;sort={$this->sort}&amp;dir={$this->dir}&amp;" .
+                                "perpage={$this->perpage}&amp;gas_gauge_page={$this->gas_gauge_page}{$args}&amp;");
 
         echo $OUTPUT->render($paging_bar);
         echo $this->get_interactive_filter_display();
@@ -652,9 +655,9 @@ abstract class gas_gauge_table_report extends table_report {
         }
 
         //similar to parent class, but maintains gas gauge page
-        $paging_bar = new paging_bar($this->numrecs, $this->page, $this->perpage,
-                                    "{$effective_url}&amp;sort={$this->sort}&amp;dir={$this->dir}&amp;" .
-                                    "perpage={$this->perpage}&amp;gas_gauge_page={$this->gas_gauge_page}{$args}&amp;");
+        $this->print_paging_bar($this->numrecs, $this->page, $this->perpage,
+                                "{$effective_url}&amp;sort={$this->sort}&amp;dir={$this->dir}&amp;".
+                                "perpage={$this->perpage}&amp;gas_gauge_page={$this->gas_gauge_page}{$args}&amp;");
 
         $output .= $OUTPUT->render($paging_bar);
         return $output;
@@ -780,109 +783,6 @@ abstract class gas_gauge_table_report extends table_report {
         }
 
         return false;
-    }
-
-    /**
-     * Prints a single paging bar to provide access to other pages  (usually in a search)
-     * (Override core Moodle functionality to add the possibility to change the page label)
-     *
-     * @param int $totalcount Thetotal number of entries available to be paged through
-     * @param int $page The page you are currently viewing
-     * @param int $perpage The number of entries that should be shown per page
-     * @param mixed $baseurl If this  is a string then it is the url which will be appended with $pagevar, an equals sign and the page number.
-     *                          If this is a moodle_url object then the pagevar param will be replaced by the page no, for each page.
-     * @param string $pagevar This is the variable name that you use for the page number in your code (ie. 'tablepage', 'blogpage', etc)
-     * @param bool $nocurr do not display the current page as a link
-     * @param bool $return whether to return an output string or echo now
-     * @param string $page_label A label used to override "Page"
-     * @return bool or string
-     */
-    function print_paging_bar($totalcount, $page, $perpage, $baseurl, $pagevar='page',$nocurr=false, $return=false, $page_label='') {
-        $maxdisplay = 18;
-        $output = '';
-
-        if ($totalcount > $perpage) {
-            $tooltip_sql = $this->get_page_tooltip_sql();
-
-            $output .= '<div class="paging">';
-            //Start of RL edit
-            if (empty($page_label)) {
-                //use the default label
-                $output .= get_string('page') .':';
-            } else {
-                //custom label specified
-                $output .= $page_label . ':';
-            }
-            //End of RL edit
-            if ($page > 0) {
-                $pagenum = $page - 1;
-                $alt_title = $this->get_field_sql($tooltip_sql[0], $tooltip_sql[1], $pagenum);
-                if (!is_a($baseurl, 'moodle_url')){
-                    $output .= '&nbsp;(<a class="previous" href="'. $baseurl . $pagevar .'='. $pagenum .'" alt="' . $alt_title . '" title="' . $alt_title . '">'. get_string('previous') .'</a>)&nbsp;';
-                } else {
-                    $output .= '&nbsp;(<a class="previous" href="'. $baseurl->out(false, array($pagevar => $pagenum)).'" alt="' . $alt_title . '" title="' . $alt_title . '">'. get_string('previous') .'</a>)&nbsp;';
-                }
-            }
-            if ($perpage > 0) {
-                $lastpage = ceil($totalcount / $perpage);
-            } else {
-                $lastpage = 1;
-            }
-            if ($page > 15) {
-                $alt_title = $this->get_field_sql($tooltip_sql[0], $tooltip_sql[1], 0);
-                $startpage = $page - 10;
-                if (!is_a($baseurl, 'moodle_url')){
-                    $output .= '&nbsp;<a href="'. $baseurl . $pagevar .'=0" alt="' . $alt_title . '" title="' . $alt_title . '">1</a>&nbsp;...';
-                } else {
-                    $output .= '&nbsp;<a href="'. $baseurl->out(false, array($pagevar => 0)).'" alt="' . $alt_title . '" title="' . $alt_title . '">1</a>&nbsp;...';
-                }
-            } else {
-                $startpage = 0;
-            }
-            $currpage = $startpage;
-            $displaycount = $displaypage = 0;
-            while ($displaycount < $maxdisplay and $currpage < $lastpage) {
-                $displaypage = $currpage+1;
-                if ($page == $currpage && empty($nocurr)) {
-                    $output .= '&nbsp;&nbsp;'. $displaypage;
-                } else {
-                    $alt_title = $this->get_field_sql($tooltip_sql[0], $tooltip_sql[1], $currpage);
-                    if (!is_a($baseurl, 'moodle_url')){
-                        $output .= '&nbsp;&nbsp;<a href="'. $baseurl . $pagevar .'='. $currpage .'" alt="' . $alt_title . '" title="' . $alt_title . '">'. $displaypage .'</a>';
-                    } else {
-                        $output .= '&nbsp;&nbsp;<a href="'. $baseurl->out(false, array($pagevar => $currpage)).'" alt="' . $alt_title . '" title="' . $alt_title . '">'. $displaypage .'</a>';
-                    }
-                }
-                $displaycount++;
-                $currpage++;
-            }
-            if ($currpage < $lastpage) {
-                $lastpageactual = $lastpage - 1;
-                $alt_title = $this->get_field_sql($tooltip_sql[0], $tooltip_sql[1], $lastpageactual);
-                if (!is_a($baseurl, 'moodle_url')){
-                    $output .= '&nbsp;...&nbsp;<a href="'. $baseurl . $pagevar .'='. $lastpageactual .'" alt="' . $alt_title . '" title="' . $alt_title . '">'. $lastpage .'</a>&nbsp;';
-                } else {
-                    $output .= '&nbsp;...&nbsp;<a href="'. $baseurl->out(false, array($pagevar => $lastpageactual)).'" alt="' . $alt_title . '" title="' . $alt_title . '">'. $lastpage .'</a>&nbsp;';
-                }
-            }
-            $pagenum = $page + 1;
-            if ($pagenum != $displaypage) {
-                $alt_title = $this->get_field_sql($tooltip_sql[0], $tooltip_sql[1], $pagenum);
-                if (!is_a($baseurl, 'moodle_url')){
-                    $output .= '&nbsp;&nbsp;(<a class="next" href="'. $baseurl . $pagevar .'='. $pagenum .'" alt="' . $alt_title . '" title="' . $alt_title . '">'. get_string('next') .'</a>)';
-                } else {
-                    $output .= '&nbsp;&nbsp;(<a class="next" href="'. $baseurl->out(false, array($pagevar => $pagenum)) .'" alt="' . $alt_title . '" title="' . $alt_title . '">'. get_string('next') .'</a>)';
-                }
-            }
-            $output .= '</div>';
-        }
-
-        if ($return) {
-            return $output;
-        }
-
-        echo $output;
-        return true;
     }
 
     /**
