@@ -1,0 +1,21 @@
+diff --git a/mod/hotpot/view.php b/mod/hotpot/view.php
+index 698fbfa..262771d 100644
+--- a/mod/hotpot/view.php
++++ b/mod/hotpot/view.php
+@@ -356,14 +356,8 @@
+         $body .= ""
+         .   '<script type="text/javascript">'."\n"
+         .   "//<![CDATA[\n"
+-        .   "    var re = new RegExp('\\\\s+', 'g');\n"
+-        .   "    if (typeof(window.onload)=='function') {\n"
+-        .   "        var s = onload.toString();\n"
+-        .   "        s = s.replace(re, '');\n"
+-        .   "    } else {\n"
+-        .   "        var s = '';\n"
+-        .   "    }\n"
+-        .   "    if (s.indexOf('".$matches[3]."'.replace(re, ''))<0) {\n"
++        .   "   var s = (typeof(window.onload)=='function') ? onload.toString() : '';\n"
++        .   "   if (s.indexOf('".$matches[3]."')<0) {\n"
+         .   "        if (s=='') {\n" // no previous onload
+         .   "            window.onload = new Function('".$matches[3]."');\n"
+         .   "        } else {\n"

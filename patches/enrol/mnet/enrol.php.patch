@@ -1,0 +1,12 @@
+diff --git a/enrol/mnet/enrol.php b/enrol/mnet/enrol.php
+index 49f99ba..30a9948 100644
+--- a/enrol/mnet/enrol.php
++++ b/enrol/mnet/enrol.php
+@@ -315,7 +315,6 @@ class enrolment_plugin_mnet {
+             $userrecord->firstname  = addslashes($user['firstname']);
+             $userrecord->lastname   = addslashes($user['lastname']);
+             $userrecord->mnethostid = $MNET_REMOTE_CLIENT->id;
+-            $userrecord->confirmed  = 1;
+ 
+             if ($userrecord->id = insert_record('user', $userrecord)) {
+                 $userrecord = get_record('user','id', $userrecord->id);

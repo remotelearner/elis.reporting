@@ -1,0 +1,95 @@
+diff --git a/mod/hotpot/restorelib.php b/mod/hotpot/restorelib.php
+index 43b3c4d..bdec5d1 100644
+--- a/mod/hotpot/restorelib.php
++++ b/mod/hotpot/restorelib.php
+@@ -1,39 +1,39 @@
+-<?php
++<?PHP //$Id$
+ //This php script contains all the stuff to restore hotpot mods
+-//-----------------------------------------------------------
+-// This is the "graphical" structure of the hotpot mod:
+-//-----------------------------------------------------------
+-//
+-//                         hotpot
+-//                      (CL, pk->id,
+-//                   fk->course, files)
+-//                           |
+-//            +--------------+---------------+
+-//            |                              |
+-//      hotpot_attempts             hotpot_questions
+-//       (UL, pk->id,                 (UL, pk->id,
+-//        fk->hotpot)               fk->hotpot, text)
+-//            |                              |    |
+-//            +-------------------+----------+    |
+-//            |                   |               |
+-//      hotpot_details     hotpot_responses       |
+-//       (UL, pk->id,        (UL, pk->id,         |
+-//       fk->attempt)    fk->attempt, question,   |
+-//                      correct, wrong, ignored)  |git
+-//                                |               |
+-//                                +-------+-------+
+-//                                        |
+-//                                 hotpot_strings
+-//                                  (UL, pk->id)
+-//
+-// Meaning: pk->primary key field of the table
+-//          fk->foreign key to link with parent
+-//          nt->nested field (recursive data)
+-//          CL->course level info
+-//          UL->user level info
+-//          files->table may have files
+-//
+-//-----------------------------------------------------------
++    //-----------------------------------------------------------
++    // This is the "graphical" structure of the hotpot mod:
++    //-----------------------------------------------------------
++    //
++    //                         hotpot
++    //                      (CL, pk->id,
++    //                   fk->course, files)
++    //                           |
++    //            +--------------+---------------+
++    //            |                              |
++    //      hotpot_attempts             hotpot_questions
++    //       (UL, pk->id,                 (UL, pk->id,
++    //        fk->hotpot)               fk->hotpot, text)
++    //            |                              |    |
++    //            +-------------------+----------+    |
++    //            |                   |               |
++    //      hotpot_details     hotpot_responses       |
++    //       (UL, pk->id,        (UL, pk->id,         |
++    //       fk->attempt)    fk->attempt, question,   |
++    //                      correct, wrong, ignored)  |
++    //                                |               |
++    //                                +-------+-------+
++    //                                        |
++    //                                 hotpot_strings
++    //                                  (UL, pk->id)
++    //
++    // Meaning: pk->primary key field of the table
++    //          fk->foreign key to link with parent
++    //          nt->nested field (recursive data)
++    //          CL->course level info
++    //          UL->user level info
++    //          files->table may have files
++    //
++    //-----------------------------------------------------------
+ 
+ require_once ("$CFG->dirroot/mod/hotpot/lib.php");
+ 
+@@ -359,7 +359,6 @@ function hotpot_restore_record(&$restore, $status, &$xml, $table, $foreign_keys,
+     }
+ 
+     // check all "not null" fields have been set
+-    if (isset($table_columns[$table]) && is_array($table_columns[$table])) {
+         foreach ($table_columns[$table] as $column) {
+             if ($column->not_null) {
+                 $name = $column->name;
+@@ -374,7 +373,6 @@ function hotpot_restore_record(&$restore, $status, &$xml, $table, $foreign_keys,
+                 }
+             }
+         }
+-    }
+ 
+     // check everything is OK so far
+     if ($ok) {
