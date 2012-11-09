@@ -1,0 +1,25 @@
+diff --git a/admin/renderer.php b/admin/renderer.php
+index d99092d..0fdb237 100644
+--- a/admin/renderer.php
++++ b/admin/renderer.php
+@@ -711,8 +711,18 @@ class core_admin_renderer extends plugin_renderer_base {
+                 if (file_exists($versionfile)) {
+                     include($versionfile);
+                 }
+-                $release = new html_table_cell(!empty($plugin->release)
+-                                               ? $plugin->release : ''); // TBD
++
++                // ELIS-7214 -- Activity modules use a $module object in their version.php file so check that for a release
++                //              property as well.
++                if (isset($plugin->release)) {
++                    $rel = $plugin->release;
++                } else if (isset($module->release)) {
++                    $rel = $module->release;
++                } else {
++                    $rel = '';
++                }
++
++                $release = new html_table_cell($rel);
+ 
+                 $isenabled = $plugin->is_enabled();
+                 if (is_null($isenabled)) {

@@ -77,7 +77,7 @@ function php_report_schedule_export_instance($report_schedule, $now = 0) {
     // Attach the file to the recipients
     foreach ($recipients_array as $recipient) {
         $user = new stdClass;
-        $user->email = $recipient;
+        $user->email = trim($recipient);
         $user->mailformat = 1;
         email_to_user($user, $from, $subject, $messagetext, $messagehtml, $attachment, $attachname);
     }
@@ -104,7 +104,7 @@ function php_report_schedule_decrement_remaining_runs($report_schedule) {
 
     $upreport_schedule = new stdClass;
     $upreport_schedule->id = $report_schedule->id;
-    
+
     // Update runs remaining in the php report record
     if (isset($data['schedule']['runsremaining']) && $data['schedule']['runsremaining'] > 0 ) {
         $data['schedule']['runsremaining'] = $data['schedule']['runsremaining'] - 1;
