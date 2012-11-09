@@ -1,0 +1,12 @@
+diff --git a/lib/moodlelib.php b/lib/moodlelib.php
+index 727faa1..b79830d 100644
+--- a/lib/moodlelib.php
++++ b/lib/moodlelib.php
+@@ -5065,7 +5065,6 @@ function get_mailer($action='get') {
+                 $mailer->SMTPDebug = true;
+             }
+             $mailer->Host          = $CFG->smtphosts;        // specify main and backup servers
+-            $mailer->SMTPSecure    = $CFG->smtpsecure;       // specify secure connection protocol
+             $mailer->SMTPKeepAlive = $prevkeepalive;         // use previous keepalive
+ 
+             if ($CFG->smtpuser) {                            // Use SMTP authentication
