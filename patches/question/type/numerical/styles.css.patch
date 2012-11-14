@@ -1,0 +1,20 @@
+diff --git a/question/type/numerical/styles.css b/question/type/numerical/styles.css
+index 784c855..50958df 100644
+--- a/question/type/numerical/styles.css
++++ b/question/type/numerical/styles.css
+@@ -6,3 +6,15 @@
+ .que.numerical .answer input[type="text"] {
+     width: 30%;
+ }
++
++/* Numeric INPUT text boxes should be left aligned in RTL mode
++*/
++#page-question-type-numerical.dir-rtl input[name="unitpenalty"],
++#page-question-type-numerical.dir-rtl input[name^="answer"],
++#page-question-type-numerical.dir-rtl input[name^="tolerance"],
++#page-question-type-numerical.dir-rtl input[name^="multiplier"],
++#page-question-type-numerical.dir-rtl input[name^="unit"]
++{
++    direction: ltr;
++    text-align: left;
++}

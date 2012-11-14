@@ -1,0 +1,13 @@
+diff --git a/question/type/multianswer/module.js b/question/type/multianswer/module.js
+index beb3788..2fbe4e0 100644
+--- a/question/type/multianswer/module.js
++++ b/question/type/multianswer/module.js
+@@ -27,7 +27,7 @@ M.qtype_multianswer = M.qtype_multianswer || {};
+ 
+ 
+ M.qtype_multianswer.init = function (Y, questiondiv) {
+-    Y.one(questiondiv).all('label.subq').each(function(subqspan, i) {
++    Y.one(questiondiv).all('span.subquestion').each(function(subqspan, i) {
+         var feedbackspan = subqspan.one('.feedbackspan');
+         if (!feedbackspan) {
+             return;

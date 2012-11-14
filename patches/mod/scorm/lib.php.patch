@@ -1,0 +1,37 @@
+diff --git a/mod/scorm/lib.php b/mod/scorm/lib.php
+index 27b4722..c3de373 100644
+--- a/mod/scorm/lib.php
++++ b/mod/scorm/lib.php
+@@ -1328,16 +1328,20 @@ function scorm_dndupload_handle($uploadinfo) {
+  * @param array $grades grades array of users with grades - used when $userid = 0
+  */
+ function scorm_set_completion($scorm, $userid, $completionstate = COMPLETION_COMPLETE, $grades = array()) {
+-    if (!completion_info::is_enabled()) {
+-        return;
+-    }
+-
+     $course = new stdClass();
+     $course->id = $scorm->course;
++    $completion = new completion_info($course);
++
++    // Check if completion is enabled site-wide, or for the course
++    if (!$completion->is_enabled()) {
++        return;
++    }
+ 
+     $cm = get_coursemodule_from_instance('scorm', $scorm->id, $scorm->course);
+-    if (!empty($cm)) {
+-        $completion = new completion_info($course);
++    if (empty($cm) || !$completion->is_enabled($cm)) {
++            return;
++    }
++
+         if (empty($userid)) { //we need to get all the relevant users from $grades param.
+             foreach ($grades as $grade) {
+                 $completion->update_state($cm, $completionstate, $grade->userid);
+@@ -1345,5 +1349,4 @@ function scorm_set_completion($scorm, $userid, $completionstate = COMPLETION_COM
+         } else {
+             $completion->update_state($cm, $completionstate, $userid);
+         }
+-    }
+ }

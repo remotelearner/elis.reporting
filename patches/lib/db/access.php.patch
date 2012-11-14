@@ -1,0 +1,19 @@
+diff --git a/lib/db/access.php b/lib/db/access.php
+index 121750c..f2027df 100644
+--- a/lib/db/access.php
++++ b/lib/db/access.php
+@@ -979,6 +979,14 @@ $capabilities = array(
+         )
+     ),
+ 
++    'moodle/course:isincompletionreports' => array(
++        'captype' => 'read',
++        'contextlevel' => CONTEXT_COURSE,
++        'archetypes' => array(
++            'student' => CAP_ALLOW,
++        ),
++    ),
++
+     'moodle/course:viewscales' => array(
+ 
+         'captype' => 'read',

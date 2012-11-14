@@ -1,0 +1,13 @@
+diff --git a/comment/locallib.php b/comment/locallib.php
+index 5a8b0d7..31b2799 100644
+--- a/comment/locallib.php
++++ b/comment/locallib.php
+@@ -94,7 +94,7 @@ class comment_manager {
+      */
+     private function setup_course($courseid) {
+         global $PAGE, $DB;
+-        if (!empty($this->course)) {
++        if (!empty($this->course) && $this->course->id == $courseid) {
+             // already set, stop
+             return;
+         }

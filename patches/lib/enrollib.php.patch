@@ -1,0 +1,13 @@
+diff --git a/lib/enrollib.php b/lib/enrollib.php
+index b6736c4..bb609fc 100644
+--- a/lib/enrollib.php
++++ b/lib/enrollib.php
+@@ -1626,7 +1626,7 @@ abstract class enrol_plugin {
+         $participants->close();
+ 
+         // now clean up all remainders that were not removed correctly
+-        $DB->delete_records('role_assignments', array('itemid'=>$instance->id, 'component'=>$name));
++        $DB->delete_records('role_assignments', array('itemid'=>$instance->id, 'component'=>'enrol_'.$name));
+         $DB->delete_records('user_enrolments', array('enrolid'=>$instance->id));
+ 
+         // finally drop the enrol row

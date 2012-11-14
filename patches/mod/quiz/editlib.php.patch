@@ -1,0 +1,20 @@
+diff --git a/mod/quiz/editlib.php b/mod/quiz/editlib.php
+index 6d16aa7..d02f57b 100644
+--- a/mod/quiz/editlib.php
++++ b/mod/quiz/editlib.php
+@@ -1138,6 +1138,15 @@ class quiz_question_bank_view extends question_bank_view {
+                 'editaction', 'previewaction');
+     }
+ 
++    /**
++     * Specify the column heading
++     *
++     * @return string Column name for the heading
++     */
++    protected function heading_column() {
++        return 'questionnametext';
++    }
++
+     protected function default_sort() {
+         $this->requiredcolumns['qtype'] = $this->knowncolumntypes['qtype'];
+         $this->requiredcolumns['questionnametext'] = $this->knowncolumntypes['questionnametext'];

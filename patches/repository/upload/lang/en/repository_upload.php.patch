@@ -1,0 +1,12 @@
+diff --git a/repository/upload/lang/en/repository_upload.php b/repository/upload/lang/en/repository_upload.php
+index 1d5664d..1a0210a 100644
+--- a/repository/upload/lang/en/repository_upload.php
++++ b/repository/upload/lang/en/repository_upload.php
+@@ -34,4 +34,4 @@ $string['upload_error_no_file'] = 'No file was uploaded.';
+ $string['upload_error_no_tmp_dir'] = 'PHP is missing a temporary folder.';
+ $string['upload_error_cant_write'] = 'Failed to write file to disk.';
+ $string['upload_error_extension'] = 'A PHP extension stopped the file upload.';
+-$string['upload_error_invalid_file'] = 'The file \'{$a}\' has no data in it - did you try to upload a folder?';
+\ No newline at end of file
++$string['upload_error_invalid_file'] = 'The file \'{$a}\' is either empty or a folder. To upload folders zip them first.';
+\ No newline at end of file

@@ -1,0 +1,12 @@
+diff --git a/mod/quiz/module.js b/mod/quiz/module.js
+index ce0d359..70332fa 100644
+--- a/mod/quiz/module.js
++++ b/mod/quiz/module.js
+@@ -101,6 +101,7 @@ M.mod_quiz.timer = {
+             if (form.one('input[name=finishattempt]')) {
+                 form.one('input[name=finishattempt]').set('value', 0);
+             }
++            M.core_formchangechecker.set_form_submitted();
+             form.submit();
+             return;
+         }

@@ -1,0 +1,13 @@
+diff --git a/grade/report/grader/lib.php b/grade/report/grader/lib.php
+index ea8f076..3dbac53 100644
+--- a/grade/report/grader/lib.php
++++ b/grade/report/grader/lib.php
+@@ -225,7 +225,7 @@ class grade_report_grader extends grade_report {
+                 $changedgrades = true;
+ 
+             } else if ($datatype === 'feedback') {
+-                if ($oldvalue->feedback === $postedvalue) {
++                if (($oldvalue->feedback === $postedvalue) or ($oldvalue->feedback === NULL and empty($postedvalue))) {
+                     continue;
+                 }
+             }

@@ -1,0 +1,12 @@
+diff --git a/user/edit.php b/user/edit.php
+index aa88131..0ca7509 100644
+--- a/user/edit.php
++++ b/user/edit.php
+@@ -293,6 +293,7 @@ $PAGE->set_title("$course->shortname: $streditmyprofile");
+ $PAGE->set_heading($course->fullname);
+ 
+ echo $OUTPUT->header();
++echo $OUTPUT->heading($userfullname);
+ 
+ if ($email_changed) {
+     echo $email_changed_html;
