@@ -1,0 +1,13 @@
+diff --git a/lib/form/yui/dateselector/dateselector.js b/lib/form/yui/dateselector/dateselector.js
+index 1109b22..9414db0 100644
+--- a/lib/form/yui/dateselector/dateselector.js
++++ b/lib/form/yui/dateselector/dateselector.js
+@@ -220,7 +220,7 @@ YUI.add('moodle-form-dateselector', function(Y) {
+                     config.september,
+                     config.october,
+                     config.november,
+-                    config.december ],
++                    config.december ]
+             });
+             this.calendar.changePageEvent.subscribe(function(){
+                 this.fix_position();

@@ -1,12 +1,132 @@
 diff --git a/lib/moodlelib.php b/lib/moodlelib.php
-index 727faa1..b79830d 100644
+index 14844c6..29fccba 100644
 --- a/lib/moodlelib.php
 +++ b/lib/moodlelib.php
-@@ -5065,7 +5065,6 @@ function get_mailer($action='get') {
-                 $mailer->SMTPDebug = true;
-             }
-             $mailer->Host          = $CFG->smtphosts;        // specify main and backup servers
--            $mailer->SMTPSecure    = $CFG->smtpsecure;       // specify secure connection protocol
-             $mailer->SMTPKeepAlive = $prevkeepalive;         // use previous keepalive
+@@ -2071,13 +2071,7 @@ function userdate($date, $format = '', $timezone = 99, $fixday = true, $fixhour
+     // (because it's impossible to specify UTF-8 to fetch locale info in Win32)
  
-             if ($CFG->smtpuser) {                            // Use SMTP authentication
+     if (abs($timezone) > 13) {   /// Server time
+-        if ($CFG->ostype == 'WINDOWS' and ($localewincharset = get_string('localewincharset', 'langconfig'))) {
+-            $format = textlib::convert($format, 'utf-8', $localewincharset);
+-            $datestring = strftime($format, $date);
+-            $datestring = textlib::convert($datestring, $localewincharset, 'utf-8');
+-        } else {
+-            $datestring = strftime($format, $date);
+-        }
++        $datestring = date_format_string($date, $format, $timezone);
+         if ($fixday) {
+             $daystring  = ltrim(str_replace(array(' 0', ' '), '', strftime(' %d', $date)));
+             $datestring = str_replace('DD', $daystring, $datestring);
+@@ -2089,13 +2083,7 @@ function userdate($date, $format = '', $timezone = 99, $fixday = true, $fixhour
+ 
+     } else {
+         $date += (int)($timezone * 3600);
+-        if ($CFG->ostype == 'WINDOWS' and ($localewincharset = get_string('localewincharset', 'langconfig'))) {
+-            $format = textlib::convert($format, 'utf-8', $localewincharset);
+-            $datestring = gmstrftime($format, $date);
+-            $datestring = textlib::convert($datestring, $localewincharset, 'utf-8');
+-        } else {
+-            $datestring = gmstrftime($format, $date);
+-        }
++        $datestring = date_format_string($date, $format, $timezone);
+         if ($fixday) {
+             $daystring  = ltrim(str_replace(array(' 0', ' '), '', gmstrftime(' %d', $date)));
+             $datestring = str_replace('DD', $daystring, $datestring);
+@@ -2110,6 +2098,46 @@ function userdate($date, $format = '', $timezone = 99, $fixday = true, $fixhour
+ }
+ 
+ /**
++ * Returns a formatted date ensuring it is UTF-8.
++ *
++ * If we are running under Windows convert to Windows encoding and then back to UTF-8
++ * (because it's impossible to specify UTF-8 to fetch locale info in Win32).
++ *
++ * This function does not do any calculation regarding the user preferences and should
++ * therefore receive the final date timestamp, format and timezone. Timezone being only used
++ * to differenciate the use of server time or not (strftime() against gmstrftime()).
++ *
++ * @param int $date the timestamp.
++ * @param string $format strftime format.
++ * @param int|float $timezone the numerical timezone, typically returned by {@link get_user_timezone_offset()}.
++ * @return string the formatted date/time.
++ * @since 2.3.3
++ */
++function date_format_string($date, $format, $tz = 99) {
++    global $CFG;
++    if (abs($tz) > 13) {
++        if ($CFG->ostype == 'WINDOWS') {
++            $localewincharset = get_string('localewincharset', 'langconfig');
++            $format = textlib::convert($format, 'utf-8', $localewincharset);
++            $datestring = strftime($format, $date);
++            $datestring = textlib::convert($datestring, $localewincharset, 'utf-8');
++        } else {
++            $datestring = strftime($format, $date);
++        }
++    } else {
++        if ($CFG->ostype == 'WINDOWS') {
++            $localewincharset = get_string('localewincharset', 'langconfig');
++            $format = textlib::convert($format, 'utf-8', $localewincharset);
++            $datestring = gmstrftime($format, $date);
++            $datestring = textlib::convert($datestring, $localewincharset, 'utf-8');
++        } else {
++            $datestring = gmstrftime($format, $date);
++        }
++    }
++    return $datestring;
++}
++
++/**
+  * Given a $time timestamp in GMT (seconds since epoch),
+  * returns an array that represents the date in user time
+  *
+@@ -8432,15 +8460,42 @@ function check_php_version($version='5.2.4') {
+ 
+ 
+       case 'Gecko':   /// Gecko based browsers
+-          if (empty($version) and substr_count($agent, 'Camino')) {
+-              // MacOS X Camino support
+-              $version = 20041110;
++          // Do not look for dates any more, we expect real Firefox version here.
++          if (empty($version)) {
++              $version = 1;
++          } else if ($version > 20000000) {
++              // This is just a guess, it is not supposed to be 100% accurate!
++              if (preg_match('/^201/', $version)) {
++                  $version = 3.6;
++              } else if (preg_match('/^200[7-9]/', $version)) {
++                  $version = 3;
++              } else if (preg_match('/^2006/', $version)) {
++                  $version = 2;
++              } else {
++                  $version = 1.5;
+           }
+-
+-          // the proper string - Gecko/CCYYMMDD Vendor/Version
+-          // Faster version and work-a-round No IDN problem.
+-          if (preg_match("/Gecko\/([0-9]+)/i", $agent, $match)) {
+-              if ($match[1] > $version) {
++          }
++          if (preg_match("/(Iceweasel|Firefox)\/([0-9\.]+)/i", $agent, $match)) {
++              // Use real Firefox version if specified in user agent string.
++              if (version_compare($match[2], $version) >= 0) {
++                  return true;
++              }
++          } else if (preg_match("/Gecko\/([0-9\.]+)/i", $agent, $match)) {
++              // Gecko might contain date or Firefox revision, let's just guess the Firefox version from the date.
++              $browserver = $match[1];
++              if ($browserver > 20000000) {
++                  // This is just a guess, it is not supposed to be 100% accurate!
++                  if (preg_match('/^201/', $browserver)) {
++                      $browserver = 3.6;
++                  } else if (preg_match('/^200[7-9]/', $browserver)) {
++                      $browserver = 3;
++                  } else if (preg_match('/^2006/', $version)) {
++                      $browserver = 2;
++                  } else {
++                      $browserver = 1.5;
++                  }
++              }
++              if (version_compare($browserver, $version) >= 0) {
+                       return true;
+                   }
+               }

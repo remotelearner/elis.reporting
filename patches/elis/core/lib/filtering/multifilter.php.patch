@@ -1,0 +1,14 @@
+diff --git a/elis/core/lib/filtering/multifilter.php b/elis/core/lib/filtering/multifilter.php
+index 4ce1d94..a542e0d 100644
+--- a/elis/core/lib/filtering/multifilter.php
++++ b/elis/core/lib/filtering/multifilter.php
+@@ -316,7 +316,8 @@ class generalized_filter_multifilter {
+                     $this->_choices[$field_identifier] =
+                             array('startyear' => $params['startyear'],
+                                   'stopyear'  => $params['stopyear'],
+-                                  'inctime'   => $params['inctime']);
++                                  'inctime'   => isset($params['inctime'])
++                                                 ? $params['inctime'] : false);
+                     break;
+ 
+                 case 'checkbox':

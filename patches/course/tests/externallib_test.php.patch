@@ -1,0 +1,11 @@
+diff --git a/course/tests/externallib_test.php b/course/tests/externallib_test.php
+index 605c5d8..984b9ed 100644
+--- a/course/tests/externallib_test.php
++++ b/course/tests/externallib_test.php
+@@ -580,6 +580,5 @@ class core_course_external_testcase extends externallib_advanced_testcase {
+ 
+         // Check that the course has been duplicated.
+         $this->assertEquals($newcourse['shortname'], $duplicate['shortname']);
+-        gc_collect_cycles();
+     }
+ }

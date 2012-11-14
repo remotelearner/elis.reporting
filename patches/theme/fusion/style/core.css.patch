@@ -1,0 +1,14 @@
+diff --git a/theme/fusion/style/core.css b/theme/fusion/style/core.css
+index bc31d35..7e94997 100644
+--- a/theme/fusion/style/core.css
++++ b/theme/fusion/style/core.css
+@@ -390,3 +390,8 @@ h2.headingblock {
+ #page-mod-assignment-submissions #attempts th.header {
+     font-size: 80%;
+ }
++
++.course-content ul.topics,
++.course-content ul.weeks {
++    clear: both;
++}
+\ No newline at end of file

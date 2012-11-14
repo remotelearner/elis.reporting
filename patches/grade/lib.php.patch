@@ -1,0 +1,13 @@
+diff --git a/grade/lib.php b/grade/lib.php
+index d7d3b5b..a1e634b 100644
+--- a/grade/lib.php
++++ b/grade/lib.php
+@@ -1503,7 +1503,7 @@ class grade_structure {
+ 
+             $url->param('action', 'show');
+ 
+-            $hideicon = $OUTPUT->action_icon($url, new pix_icon('t/'.$type, $tooltip, 'moodle', array('alt'=>$strshow, 'class'=>'iconsmall')));
++            $hideicon = $OUTPUT->action_icon($url, new pix_icon('t/'.$type, $tooltip, 'moodle', array('alt'=>$strshow, 'class'=>'smallicon')));
+ 
+         } else {
+             $url->param('action', 'hide');

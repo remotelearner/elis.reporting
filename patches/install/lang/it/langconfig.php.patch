@@ -1,0 +1,11 @@
+diff --git a/install/lang/it/langconfig.php b/install/lang/it/langconfig.php
+index 1b8da44..4e2760f 100644
+--- a/install/lang/it/langconfig.php
++++ b/install/lang/it/langconfig.php
+@@ -30,5 +30,6 @@
+ 
+ defined('MOODLE_INTERNAL') || die();
+ 
++$string['parentlanguage'] = '';
+ $string['thisdirection'] = 'ltr';
+ $string['thislanguage'] = 'Italiano';
