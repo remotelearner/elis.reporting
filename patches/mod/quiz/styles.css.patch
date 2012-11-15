@@ -1,0 +1,20 @@
+diff --git a/mod/quiz/styles.css b/mod/quiz/styles.css
+index d4a9b73..7260ca3 100644
+--- a/mod/quiz/styles.css
++++ b/mod/quiz/styles.css
+@@ -117,6 +117,7 @@ table.quizattemptsummary .noreviewmessage {color: gray;}
+ #page-mod-quiz-view .generalbox#feedback {width:70%;margin-left:auto;margin-right:auto;padding-bottom:15px;}
+ #page-mod-quiz-view .generalbox#feedback h2 {margin: 0;}
+ #page-mod-quiz-view .generalbox#feedback h3 {text-align: left;}
++#page-mod-quiz-view.dir-rtl .generalbox#feedback h3 {text-align: center;}
+ #page-mod-quiz-view .generalbox#feedback .overriddennotice {text-align: center;font-size: 0.7em;}
+ .quizstartbuttondiv.quizsecuremoderequired input { display: none; }
+ .jsenabled .quizstartbuttondiv.quizsecuremoderequired input { display: inline; }
+@@ -252,6 +253,7 @@ table#categoryquestions {width: 100%;overflow: hidden;table-layout: fixed;}
+ #page-mod-quiz-edit div.question div.content .singlequestion .questiontext{display:inline-block;}
+ #page-mod-quiz-edit div.question div.content .singlequestion .questionpreview{background-color:#eee;}
+ #page-mod-quiz-edit div.question div.content .questiontype{display:block;clear:left;float:left;}
++#page-mod-quiz-edit.dir-rtl div.question div.content .questiontype {clear: right;float: right;}
+ #page-mod-quiz-edit div.question div.content .questionpreview {display:block;float:left;margin-left:0.3em;padding-left:0.2em;padding-right:0.2em;}
+ #page-mod-quiz-edit div.question div.content .questionpreview a{background-color:#eee;}
+ #page-mod-quiz-edit div.question div.content div.quiz_randomquestion .questionpreview{display:inline;float:none;}

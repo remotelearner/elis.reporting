@@ -1,5 +1,5 @@
 diff --git a/elis/core/plugins/user_activity/version.php b/elis/core/plugins/user_activity/version.php
-index 5082438..0433fee 100644
+index 5082438..ed514c2 100644
 --- a/elis/core/plugins/user_activity/version.php
 +++ b/elis/core/plugins/user_activity/version.php
 @@ -3,4 +3,4 @@
@@ -7,4 +7,4 @@ index 5082438..0433fee 100644
  
  $plugin->version = 2012021400;
 -$plugin->release = '2.0.2-PRERELEASE (Build: 20120214)';
-+$plugin->release = '2.2.0.10 (Build: 20121107)';
++$plugin->release = '2.2.0.11 (Build: 20121115)';

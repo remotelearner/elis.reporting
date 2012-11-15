@@ -1,0 +1,13 @@
+diff --git a/lib/adminlib.php b/lib/adminlib.php
+index 397bbf1..64e645c 100644
+--- a/lib/adminlib.php
++++ b/lib/adminlib.php
+@@ -7584,7 +7584,7 @@ class admin_setting_managewebservicetokens extends admin_setting {
+                         array(array('id' => $token->userid)), $token->serviceid);
+ 
+                 if (!is_siteadmin($token->userid) and
+-                        key_exists($token->userid, $usermissingcaps)) {
++                        array_key_exists($token->userid, $usermissingcaps)) {
+                     $missingcapabilities = implode(', ',
+                             $usermissingcaps[$token->userid]);
+                     if (!empty($missingcapabilities)) {

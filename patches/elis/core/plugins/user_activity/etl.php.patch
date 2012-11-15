@@ -1,46 +1,118 @@
 diff --git a/elis/core/plugins/user_activity/etl.php b/elis/core/plugins/user_activity/etl.php
-index 89b276d..d8e1802 100644
+index 89b276d..58a6d97 100644
 --- a/elis/core/plugins/user_activity/etl.php
 +++ b/elis/core/plugins/user_activity/etl.php
-@@ -127,13 +127,17 @@ function user_module_activity_add_session($userid, $courseid, $cmid, $session_st
+@@ -56,18 +56,19 @@ function user_activity_add_session($userid, $courseid, $session_start, $session_
+             mtrace("** adding {$length} second session for user {$userid} in course {$courseid}");
+         }
+         // split the session into hours
+-        $start_hour = floor($session_start/3600)*3600;
++        $start_hour = floor($session_start/HOURSECS)*HOURSECS;
          $first = true;
-         while ($session_end > $start_hour + 3600) {
-             $session_hour_duration = $start_hour + 3600 - $session_start;
--            if ($first && $rec = $DB->get_record(ETL_MOD_TABLE,
-+            if ($rec = $DB->get_record(ETL_MOD_TABLE,
-                                          array('userid' => $userid,
-                                                'cmid'   => $cmid,
-                                                'hour'   => $start_hour))) {
+-        while ($session_end > $start_hour + 3600) {
+-            $session_hour_duration = $start_hour + 3600 - $session_start;
+-            if ($rec = $DB->get_record(ETL_TABLE,
+-                                       array('userid'   => $userid,
++        while ($session_end > $start_hour + HOURSECS) {
++            $session_hour_duration = $start_hour + HOURSECS - $session_start;
++            $params = array('userid'   => $userid,
+                                              'courseid' => $courseid,
+-                                             'hour'     => $start_hour))) {
++                            'hour'     => $start_hour
++                      );
++            if ($rec = $DB->get_record(ETL_TABLE, $params)) {
                  $rec->duration += $session_hour_duration;
-+                if ($rec->duration <= 3600) {
-                 $DB->update_record(ETL_MOD_TABLE, $rec);
+-                if ($rec->duration <= 3600) {
++                if ($rec->duration <= HOURSECS) {
+                     $DB->update_record(ETL_TABLE, $rec);
+-                } else {
++                } else if ($CFG->debug >= DEBUG_DEVELOPER) {
+                     mtrace("\nuser_activity_add_session(userid = {$userid}, courseid = {$courseid}, session_start = {$session_start}, session_end = {$session_end}): Warning: duration > 3600\n");
+                 }
              } else {
+@@ -78,19 +79,20 @@ function user_activity_add_session($userid, $courseid, $session_start, $session_
+                 $rec->duration = $session_hour_duration;
+                 $DB->insert_record(ETL_TABLE, $rec);
+             }
+-            $start_hour += 3600;
++            $start_hour += HOURSECS;
+             $session_start = $start_hour;
+             $first = false;
+         }
+         $remainder = $session_end - $session_start;
+-        if ($rec = $DB->get_record(ETL_TABLE,
+-                                   array('userid' => $userid,
++        $params = array('userid'   => $userid,
+                                          'courseid' => $courseid,
+-                                         'hour' => $start_hour))) {
++                        'hour'     => $start_hour
++                  );
++        if ($rec = $DB->get_record(ETL_TABLE, $params)) {
+             $rec->duration += $remainder;
+-            if ($rec->duration <= 3600) {
++            if ($rec->duration <= HOURSECS) {
+                 $DB->update_record(ETL_TABLE, $rec);
+-            } else {
++            } else if ($CFG->debug >= DEBUG_DEVELOPER) {
+                 mtrace("\nuser_activity_add_session(userid = {$userid}, courseid = {$courseid}, session_start = {$session_start}, session_end = {$session_end}): Warning: remainder duration > 3600\n");
+             }
+         } else {
+@@ -123,16 +125,21 @@ function user_module_activity_add_session($userid, $courseid, $cmid, $session_st
+             mtrace("** adding {$length} second session for user {$userid} in course {$courseid}, module {$cmid}");
+         }
+         // split the session into hours
+-        $start_hour = floor($session_start/3600)*3600;
++        $start_hour = floor($session_start/HOURSECS)*HOURSECS;
+         $first = true;
+-        while ($session_end > $start_hour + 3600) {
+-            $session_hour_duration = $start_hour + 3600 - $session_start;
+-            if ($first && $rec = $DB->get_record(ETL_MOD_TABLE,
+-                                         array('userid' => $userid,
++        while ($session_end > $start_hour + HOURSECS) {
++            $session_hour_duration = $start_hour + HOURSECS - $session_start;
++            $params = array('userid' => $userid,
+                                                'cmid'   => $cmid,
+-                                               'hour'   => $start_hour))) {
++                            'hour'   => $start_hour
++                      );
++            if ($rec = $DB->get_record(ETL_MOD_TABLE, $params)) {
+                 $rec->duration += $session_hour_duration;
++                if ($rec->duration <= HOURSECS) {
+                 $DB->update_record(ETL_MOD_TABLE, $rec);
++                } else if ($CFG->debug >= DEBUG_DEVELOPER) {
 +                    mtrace("\nuser_module_activity_add_session(userid = {$userid}, courseid = {$courseid}, cmid = {$cmid}, session_start = {$session_start}, session_end = {$session_end}): Warning: duration > 3600\n");
 +                }
-+            } else {
+             } else {
                  $rec = new stdClass;
                  $rec->userid = $userid;
-                 $rec->courseid = $courseid;
-@@ -147,13 +151,17 @@ function user_module_activity_add_session($userid, $courseid, $cmid, $session_st
+@@ -142,17 +149,22 @@ function user_module_activity_add_session($userid, $courseid, $cmid, $session_st
+                 $rec->duration = $session_hour_duration;
+                 $DB->insert_record(ETL_MOD_TABLE, $rec);
+             }
+-            $start_hour += 3600;
++            $start_hour += HOURSECS;
+             $session_start = $start_hour;
              $first = false;
          }
          $remainder = $session_end - $session_start;
 -        if ($first && $rec = $DB->get_record(ETL_MOD_TABLE,
-+        if ($rec = $DB->get_record(ETL_MOD_TABLE,
-                                       array('userid' => $userid,
+-                                      array('userid' => $userid,
++        $params = array('userid' => $userid,
                                              'cmid'   => $cmid,
-                                             'hour'   => $start_hour))) {
+-                                            'hour'   => $start_hour))) {
++                        'hour'   => $start_hour
++                  );
++        if ($rec = $DB->get_record(ETL_MOD_TABLE, $params)) {
              $rec->duration += $remainder;
-+            if ($rec->duration <= 3600) {
++            if ($rec->duration <= HOURSECS) {
              $DB->update_record(ETL_MOD_TABLE, $rec);
-         } else {
++            } else if ($CFG->debug >= DEBUG_DEVELOPER) {
 +                mtrace("\nuser_module_activity_add_session(userid = {$userid}, courseid = {$courseid}, cmid = {$cmid}, session_start = {$session_start}, session_end = {$session_end}): Warning: duration > 3600\n");
 +            }
-+        } else {
+         } else {
              $rec = new stdClass;
              $rec->userid = $userid;
-             $rec->courseid = $courseid;
-@@ -245,8 +253,9 @@ function user_activity_task_process(&$state) {
+@@ -245,8 +257,9 @@ function user_activity_task_process(&$state) {
  
      // find the last record that's close to our chunk size, without
      // splitting a second between runs

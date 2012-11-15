@@ -1,0 +1,73 @@
+diff --git a/elis/core/scripts/preupgrade.php b/elis/core/scripts/preupgrade.php
+index edc2263..c6f1a21 100644
+--- a/elis/core/scripts/preupgrade.php
++++ b/elis/core/scripts/preupgrade.php
+@@ -32,6 +32,20 @@ define('CLI_SCRIPT', true);
+ require_once(dirname(dirname(dirname(dirname(__FILE__)))).'/config.php');
+ require_once($CFG->libdir.'/ddllib.php');
+ 
++$steps = array(
++             'None',
++             '1. Fixed duplicate grade letters',
++             '2. Fixed duplicate user preferences',
++             '3. Fixed role capabilities',
++             '4. Updated repository:elis_files',
++             '5. Updated obsolete authentication plugins (last)',
++             'Complete' // shouldn't get here, move "(last)" to last step, above
++         );
++
++$completed_steps = array();
++
++// Delete any existing pre-upgrade status (TBD)
++$DB->delete_records('config', array('name' => 'elis_preupgrade_status'));
+ 
+ $dbman = $DB->get_manager();
+ 
+@@ -98,6 +112,10 @@ if ($rec = $DB->record_exists_sql($sql, array())) {
+     }
+ }
+ 
++if ($status) {
++    $completed_steps[] = $steps[1];
++}
++
+ mtrace(' ... '.get_string('done', 'elis_core')."!\n");
+ 
+ 
+@@ -170,6 +188,7 @@ mtrace(' ... '.get_string('done', 'elis_core')."!\n");
+ mtrace(' >>> '.get_string('preup_ec_check', 'elis_core'));
+ 
+ if ($status) {
++    $completed_steps[] = $steps[2];
+     try {
+         // Find all of the capabilities that are set to enabled
+         $select = 'capability LIKE :cap AND permission LIKE :perm';
+@@ -203,6 +222,7 @@ mtrace(' ... '.get_string('done', 'elis_core')."!\n");
+ mtrace(' >>> '.get_string('preup_ac_check', 'elis_core'));
+ 
+ if ($status) {
++    $completed_steps[] = $steps[3];
+     try {
+     // Find all of the old Alfresco repository plugin capabilities that are set to enabled
+         $select = 'name LIKE :name';
+@@ -258,6 +278,7 @@ mtrace(' ... '.get_string('done', 'elis_core')."!\n");
+ mtrace(' >>> '.get_string('preup_as_check', 'elis_core'));
+ 
+ if ($status) {
++    $completed_steps[] = $steps[4];
+     try {
+         $auth = $DB->get_field('config', 'value', array('name' => 'auth'));
+ 
+@@ -292,3 +313,12 @@ if ($status) {
+ }
+ 
+ mtrace(' ... '.get_string('done', 'elis_core')."!\n");
++
++if ($status) {
++    $completed_steps[] = $steps[5];
++}
++
++// Update pre-upgrade status
++$DB->insert_record('config', (object)array('name'  => 'elis_preupgrade_status',
++                                           'value' => implode("\n", $completed_steps)));
++

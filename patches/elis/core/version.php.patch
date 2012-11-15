@@ -1,5 +1,5 @@
 diff --git a/elis/core/version.php b/elis/core/version.php
-index 64753f2..18f1a4a 100644
+index 64753f2..d165b0e 100644
 --- a/elis/core/version.php
 +++ b/elis/core/version.php
 @@ -26,5 +26,5 @@
@@ -9,4 +9,4 @@ index 64753f2..18f1a4a 100644
 -$plugin->version = 2012032100;
 -$plugin->release = '2.2.0.8 (Build: 20120808)';
 +$plugin->version = 2012032101;
-+$plugin->release = '2.2.0.10 (Build: 20121107)';
++$plugin->release = '2.2.0.11 (Build: 20121115)';
