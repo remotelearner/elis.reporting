@@ -1,0 +1,12 @@
+diff --git a/admin/tool/customlang/styles.css b/admin/tool/customlang/styles.css
+index c743bcf..963b289 100644
+--- a/admin/tool/customlang/styles.css
++++ b/admin/tool/customlang/styles.css
+@@ -67,3 +67,7 @@
+ #page-admin-tool-customlang-index .continuebutton {
+     margin-top: 1em;
+ }
++
++.path-admin-tool-customlang #translator .standard.master.cell.c2 {
++    word-break: break-all;
++}

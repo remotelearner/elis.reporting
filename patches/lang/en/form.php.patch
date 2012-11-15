@@ -1,0 +1,12 @@
+diff --git a/lang/en/form.php b/lang/en/form.php
+index fbd8c9d..3cb86a1 100644
+--- a/lang/en/form.php
++++ b/lang/en/form.php
+@@ -25,6 +25,7 @@
+ 
+ $string['addfields'] = 'Add {$a} fields to form';
+ $string['advancedelement'] = 'Advanced element';
++$string['close'] = 'Close';
+ $string['day'] = 'Day';
+ $string['display'] = 'Display';
+ $string['err_alphanumeric'] = 'You must enter only letters or numbers here.';

@@ -1,0 +1,13 @@
+diff --git a/admin/webservice/service_users.php b/admin/webservice/service_users.php
+index 12db2b0..ad67c668 100644
+--- a/admin/webservice/service_users.php
++++ b/admin/webservice/service_users.php
+@@ -97,7 +97,7 @@ $usersmissingcaps = $webservicemanager->get_missing_capabilities_by_users($allow
+ 
+ //add the missing capabilities to the allowed users object to be displayed by renderer
+ foreach ($allowedusers as &$alloweduser) {
+-    if (!is_siteadmin($alloweduser->id) and key_exists($alloweduser->id, $usersmissingcaps)) {
++    if (!is_siteadmin($alloweduser->id) and array_key_exists($alloweduser->id, $usersmissingcaps)) {
+         $alloweduser->missingcapabilities = implode(', ', $usersmissingcaps[$alloweduser->id]);
+     }
+ }

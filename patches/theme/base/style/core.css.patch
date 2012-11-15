@@ -1,0 +1,16 @@
+diff --git a/theme/base/style/core.css b/theme/base/style/core.css
+index 207e8e8..f32e4a3 100644
+--- a/theme/base/style/core.css
++++ b/theme/base/style/core.css
+@@ -569,8 +569,11 @@ body.tag .managelink {padding: 5px;}
+ #helppopupbox {background-color: #eee; border: 1px solid #848484;z-index: 10000 !important;}
+ #helppopupbox .yui3-widget-hd {float:right;margin:3px 3px 0 0;}
+ #helppopupbox .yui3-widget-bd {margin:0 1em 1em 1em;border-top:1px solid #eee;}
++#helppopupbox .yui3-widget-ft {text-align: center;}
++#helppopupbox .yui3-widget-ft .closebtn {margin:0 1em 1em 1em;}
+ #helppopupbox .helpheading {font-size: 1em;}
+ #helppopupbox .spinner {margin:1em;}
++.dir-rtl #helppopupbox .yui3-widget-hd {float:left;margin:3px 0 0 3px;}
+ 
+ /**
+  * Custom menu

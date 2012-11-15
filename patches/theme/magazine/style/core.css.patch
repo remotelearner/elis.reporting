@@ -1,0 +1,13 @@
+diff --git a/theme/magazine/style/core.css b/theme/magazine/style/core.css
+index a617287..242e021 100644
+--- a/theme/magazine/style/core.css
++++ b/theme/magazine/style/core.css
+@@ -1040,7 +1040,7 @@ table.glossarypost td.entry h3 {
+ 
+ div#intro {
+     border: none;
+-    text-align: center;
++    text-align: left;
+     font-size: 14px;
+     color: #333333;
+ }
