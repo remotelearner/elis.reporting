@@ -115,7 +115,7 @@ class report_page extends elis_page {
         $this->navbar->add($this->report_instance->get_display_name(), null);
     }
 
-    function get_page_title() {
+    function get_page_title($action = null) {
         return $this->report_instance->get_display_name();
     }
 
