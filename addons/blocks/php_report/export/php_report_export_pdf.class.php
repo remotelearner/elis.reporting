@@ -62,7 +62,7 @@ class php_report_export_pdf extends php_report_export {
      */
     protected function initialize_pdf() {
         global $CFG;
-        require_once($CFG->libdir.'/tcpdf/tcpdf.php');
+        require_once($CFG->dirroot. '/blocks/php_report/lib/tcpdf/tcpdf.php');
 
         $newpdf = new TCPDF('L', 'in', 'letter');
 

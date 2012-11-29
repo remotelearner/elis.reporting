@@ -213,7 +213,7 @@ class individual_user_report extends table_report {
             'table' => 'crlm_user',
             'popup_title' => 'Select a User',
             'label_template' => '[[firstname]] [[lastname]]',
-            'fields' => array('username', 'firstname', 'lastname', 'idnumber'),
+            'search_fields' => array('username', 'firstname', 'lastname', 'idnumber'),
             'selection_enabled' => false,
             'restriction_sql' => '',
             'help' => array(
