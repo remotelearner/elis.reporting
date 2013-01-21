@@ -105,6 +105,7 @@ class class_roster_report extends table_report {
         foreach ($cmclasses as $cmclass) {
             $classes_array[$cmclass->id] = $cmclass->crsname .' - '. $cmclass->idnumber;
         }
+        unset($cmclasses);
 
         $class_filter = new generalized_filter_entry('classid', 'cls', 'id',
                                   get_string('filter_course_class', $this->lang_file),

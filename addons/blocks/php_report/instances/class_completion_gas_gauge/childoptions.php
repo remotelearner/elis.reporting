@@ -59,12 +59,10 @@ if (!empty($ids)) {
     $contexts = get_contexts_by_capability_for_user('class', 'block/php_report:view', $USER->id);
 
     $records = pmclass_get_listing('idnumber', 'ASC', 0, 0, '', '', $ids, false, $contexts);
-
-    if (is_array($records)) {
-        foreach ($records as $record) {
-            $choices_array[] = array($record->id, $record->idnumber);
-        }
+    foreach ($records as $record) {
+        $choices_array[] = array($record->id, $record->idnumber);
     }
+    unset($records);
 }
 
 echo json_encode($choices_array);

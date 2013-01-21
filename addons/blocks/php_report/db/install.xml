@@ -6,10 +6,10 @@
   <TABLES>
     <TABLE NAME="php_report_schedule" COMMENT="Scheduled reports">
       <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" ENUM="false" NEXT="userid"/>
-        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" ENUM="false" COMMENT="report owner" PREVIOUS="id" NEXT="report"/>
-        <FIELD NAME="report" TYPE="char" LENGTH="63" NOTNULL="true" SEQUENCE="false" ENUM="false" COMMENT="The report type" PREVIOUS="userid" NEXT="config"/>
-        <FIELD NAME="config" TYPE="text" LENGTH="medium" NOTNULL="true" SEQUENCE="false" ENUM="false" COMMENT="Serialized configuration for the scheduled task" PREVIOUS="report"/>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" NEXT="userid"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" COMMENT="report owner" PREVIOUS="id" NEXT="report"/>
+        <FIELD NAME="report" TYPE="char" LENGTH="63" NOTNULL="true" SEQUENCE="false" COMMENT="The report type" PREVIOUS="userid" NEXT="config"/>
+        <FIELD NAME="config" TYPE="text" LENGTH="medium" NOTNULL="true" SEQUENCE="false" COMMENT="Serialized configuration for the scheduled task" PREVIOUS="report"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

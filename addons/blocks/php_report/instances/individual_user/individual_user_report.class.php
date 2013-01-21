@@ -74,21 +74,22 @@ class individual_user_report extends table_report {
     function require_dependencies() {
         global $CFG;
 
-        require_once($CFG->dirroot .'/elis/program/lib/setup.php');
+        require_once($CFG->dirroot.'/elis/program/lib/setup.php');
 
         //needed for constants that define db tables
-        require_once($CFG->dirroot .'/elis/program/lib/lib.php'); // usermanagement
-        require_once($CFG->dirroot .'/elis/program/lib/data/user.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/userset.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/curriculum.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/student.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/curriculumstudent.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/course.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/curriculumcourse.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/pmclass.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/lib.php'); // usermanagement
+        require_once($CFG->dirroot.'/elis/program/lib/data/user.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/userset.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/curriculum.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/student.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/curriculumstudent.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/course.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/curriculumcourse.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/pmclass.class.php');
 
         //needed to include for filters
-        require_once($CFG->dirroot . '/elis/core/lib/filtering/simpleselect.php');
+        require_once($CFG->dirroot.'/elis/program/lib/filtering/autocomplete_eliswithcustomfields.php');
+        require_once($CFG->dirroot.'/elis/core/lib/filtering/simpleselect.php');
 
     }
 
@@ -199,23 +200,30 @@ class individual_user_report extends table_report {
      *
      * @param   boolean  $init_data  If true, signal the report to load the
      *                               actual content of the filter objects
-     *
+     * @uses $CFG
+     * @uses $USER
      * @return  array                The list of available filters
      */
     function get_filters($init_data = true) {
-        global $USER;
+        global $CFG, $USER;
+        require_once($CFG->dirroot.'/elis/program/accesslib.php');
 
         $filters = array();
 
-        // ELIS-3577 - Add the autocomplete user search filter
         $autocomplete_opts = array(
             'report' => $this->get_report_shortname(),
-            'table' => 'crlm_user',
-            'popup_title' => 'Select a User',
+            'ui' => 'inline',
+            'contextlevel' => CONTEXT_ELIS_USER,
+            'instance_fields' => array(
+                'idnumber' => get_string('filter_autocomplete_idnumber', $this->lang_file),
+                'firstname' => get_string('filter_autocomplete_firstname', $this->lang_file),
+                'lastname' => get_string('filter_autocomplete_lastname', $this->lang_file),
+                'username' => get_string('filter_autocomplete_username', $this->lang_file)
+            ),
+            'custom_fields' => '*',
             'label_template' => '[[firstname]] [[lastname]]',
-            'search_fields' => array('username', 'firstname', 'lastname', 'idnumber'),
-            'selection_enabled' => false,
-            'restriction_sql' => '',
+            'configurable' => true,
+            'required' => true,
             'help' => array(
                 'individual_user_report',
                 get_string('displayname', $this->lang_file),
@@ -228,13 +236,22 @@ class individual_user_report extends table_report {
         $autocomplete_opts['restriction_sql'] = $permissions_filter;
 
         $last_user = $this->get_chosen_userid();
-        if (empty($last_user)) {
-            $cm_user_id = cm_get_crlmuserid($USER->id);
-            $autocomplete_opts ['defaults'] = array('label' => $USER->firstname.' '.$USER->lastname, 'id' => $cm_user_id);
+        $cm_user_id = empty($last_user) ? cm_get_crlmuserid($USER->id) : $last_user;
+        if ($cm_user_id && ($cmuser = new user($cm_user_id))) {
+            $cmuser->load();
+            $autocomplete_opts['defaults'] = array(
+                    'label' => fullname($cmuser->to_object()),
+                    'id' => $cm_user_id
+                );
         }
 
-        $filters[] = new generalized_filter_entry('userid', 'usr', 'id', get_string('filter_user', $this->lang_file),
-                                                  false, 'autocomplete', $autocomplete_opts);
+        $filters[] = new generalized_filter_entry(
+                'userid', 'usr', 'id',
+                get_string('fld_fullname','elis_core'),
+                false,
+                'autocomplete_eliswithcustomfields',
+                $autocomplete_opts
+        );
 
         return $filters;
     }
