@@ -184,6 +184,7 @@ class user_class_completion_report extends table_report {
      */
     function get_filters() {
         global $CFG, $USER;
+        require_once($CFG->dirroot.'/elis/program/accesslib.php');
 
         //cluster tree
         $enable_tree_label     = $this->get_string('enable_tree');
@@ -421,11 +422,11 @@ class user_class_completion_report extends table_report {
         $autocomplete_opts = array(
             'report' => $this->get_report_shortname(),
             'ui' => 'inline',
-            'contextlevel' => 1005,
+            'contextlevel' => CONTEXT_ELIS_USER,
             'instance_fields' => array(
-                'idnumber' => get_string('filter_autocomplete_idnumber',$this->languagefile),
-                'firstname' => get_string('filter_autocomplete_firstname',$this->languagefile),
-                'lastname' => get_string('filter_autocomplete_lastname',$this->languagefile)
+                'idnumber' => get_string('filter_autocomplete_idnumber', $this->get_langfile()),
+                'firstname' => get_string('filter_autocomplete_firstname', $this->get_langfile()),
+                'lastname' => get_string('filter_autocomplete_lastname', $this->get_langfile())
             ),
             'custom_fields' => '*',
             'label_template' => '[[firstname]] [[lastname]]',
