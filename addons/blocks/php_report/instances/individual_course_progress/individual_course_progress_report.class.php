@@ -82,47 +82,69 @@ class individual_course_progress_report extends table_report {
     function require_dependencies() {
         global $CFG;
 
-        require_once($CFG->dirroot .'/elis/program/lib/setup.php');
+        require_once($CFG->dirroot.'/elis/program/lib/setup.php');
         //needs the contexts code
-        require_once($CFG->dirroot .'/elis/program/lib/contexts.php');
+        require_once($CFG->dirroot.'/elis/program/lib/contexts.php');
 
         //needed for constants that define db tables
-        require_once($CFG->dirroot .'/elis/program/lib/data/user.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/userset.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/student.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/course.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/pmclass.class.php');
-        require_once($CFG->dirroot .'/elis/program/lib/data/classmoodlecourse.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/user.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/userset.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/student.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/course.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/pmclass.class.php');
+        require_once($CFG->dirroot.'/elis/program/lib/data/classmoodlecourse.class.php');
 
         //needed to get the filtering libraries
-        require_once($CFG->dirroot .'/elis/core/lib/filtering/simpleselect.php');
-        require_once($CFG->dirroot .'/elis/program/lib/filtering/custom_field_multiselect_values.php');
+        require_once($CFG->dirroot.'/elis/program/lib/filtering/autocomplete_eliswithcustomfields.php');
+        require_once($CFG->dirroot.'/elis/core/lib/filtering/simpleselect.php');
+        require_once($CFG->dirroot.'/elis/program/lib/filtering/custom_field_multiselect_values.php');
 
         //needed for the permissions-checking logic on custom fields
-        require_once($CFG->dirroot .'/blocks/php_report/sharedlib.php');
-        require_once($CFG->dirroot .'/elis/program/lib/deprecatedlib.php');
+        require_once($CFG->dirroot.'/blocks/php_report/sharedlib.php');
+        require_once($CFG->dirroot.'/elis/program/lib/deprecatedlib.php');
     }
 
     function get_header_entries($export_format) {
+        return array(); // moved to transform_grouping_header_label()
+    }
+
+    /**
+     * Transforms a heading element displayed above the columns into a listing of such heading elements
+     *
+     * @param   string array           $grouping_current  Mapping of field names to current values in the grouping
+     * @param   table_report_grouping  $grouping          Object containing all info about the current level of grouping
+     *                                                    being handled
+     * @param   stdClass               $datum             The most recent record encountered
+     * @param   string    $export_format  The format being used to render the report
+     * @uses    $DB
+     * @return  string array                              Set of text entries to display
+     */
+    function transform_grouping_header_label($grouping_current, $grouping, $datum, $export_format) {
         global $DB;
 
-        $header_array = array();
+      /* *** Debug ***
+        ob_start();
+        echo "Grouping Current = ";
+        var_dump($grouping_current);
+        echo "\n Grouping = ";
+        var_dump($grouping);
+        $tmp = ob_get_contents();
+        ob_end_clean();
+        error_log("ICPR::transform_grouping_header_label(): {$tmp}");
+      */
 
-        if ($this->nopermission) {
-            return $header_array;
+        $headers = array();
+        if ($grouping->id != 'user' || empty($datum->userid)) {
+            return $headers;
         }
 
-        $cm_user_id = php_report_filtering_get_active_filter_values(
-                          $this->get_report_shortname(), 'userid', $this->filter);
-
+        $userid = $datum->userid;
         $cluster_names = array();
-        // Find all the clusters this user is in
-        if (!empty($cm_user_id[0]['value'])) {
-            $userid = (int)$cm_user_id[0]['value'];
-
-            $user_obj = new user($userid);
+        $user_obj = new user($userid);
+        if (!empty($user_obj)) {
             $user_obj->load();
 
+            // Find all the clusters this user is in
             $sql = "SELECT DISTINCT clst.name
                     FROM {".userset::TABLE."} clst
                     JOIN {".clusterassignment::TABLE."} usrclst
@@ -135,49 +157,36 @@ class individual_course_progress_report extends table_report {
                     $cluster_names[] = $cluster->name;
                 }
             }
-        }
 
-        if (!empty($user_obj)) {
-            $header_obj = new stdClass;
-            $header_obj->label = get_string('header_student', $this->lang_file).':';
-            $header_obj->value = fullname($user_obj->to_object());
-            $header_obj->css_identifier = '';
-            $header_array[] = $header_obj;
+            $headers[] = $this->add_grouping_header($grouping->label,
+                           get_string('header_student', $this->lang_file).': '.
+                           fullname($user_obj->to_object()), $export_format);
 
-            $header_obj = new stdClass;
-            $header_obj->label = get_string('header_id', $this->lang_file) .':';
-            $header_obj->value = $user_obj->idnumber;
-            $header_obj->css_identifier = '';
-            $header_array[] = $header_obj;
+            $headers[] = $this->add_grouping_header($grouping->label,
+                           get_string('header_id', $this->lang_file).': '.
+                           $user_obj->idnumber, $export_format);
 
-            $header_obj = new stdClass;
-            $header_obj->label = get_string('header_email', $this->lang_file) .':';
-            $header_obj->value = $user_obj->email;
-            $header_obj->css_identifier = '';
-            $header_array[] = $header_obj;
+            $headers[] = $this->add_grouping_header($grouping->label,
+                           get_string('header_email', $this->lang_file).': '.
+                           $user_obj->email, $export_format);
 
-            $header_obj = new stdClass;
-            $header_obj->label = get_string('header_reg_date', $this->lang_file) .':';
-            $header_obj->value = $this->userdate($user_obj->timecreated);
-            $header_obj->css_identifier = '';
-            $header_array[] = $header_obj;
+            $headers[] = $this->add_grouping_header($grouping->label,
+                           get_string('header_reg_date', $this->lang_file).': '.
+                           $this->userdate($user_obj->timecreated), $export_format);
 
-            $header_obj = new stdClass;
-            $header_obj->label = get_string('header_cluster', $this->lang_file) .':';
-            $header_obj->value = (count($cluster_names) > 0)
+            $headers[] = $this->add_grouping_header($grouping->label,
+                           get_string('header_cluster', $this->lang_file).': '.
+                           (count($cluster_names) > 0
                                ? implode(', ', $cluster_names)
-                               : get_string('not_available', $this->lang_file);
-            $header_obj->css_identifier = '';
-            $header_array[] = $header_obj;
+                               : get_string('not_available', $this->lang_file)),
+                           $export_format);
 
-            $header_obj = new stdClass;
-            $header_obj->label = get_string('header_date', $this->lang_file) .':';
-            $header_obj->value = $this->userdate(time());
-            $header_obj->css_identifier = '';
-            $header_array[] = $header_obj;
+            $headers[] = $this->add_grouping_header($grouping->label,
+                           get_string('header_date', $this->lang_file).': '.
+                           $this->userdate(time()), $export_format);
         }
 
-        return $header_array;
+        return $headers;
     }
 
     /**
@@ -191,7 +200,7 @@ class individual_course_progress_report extends table_report {
         $report_filters = php_report_filtering_get_user_preferences($this->get_report_shortname());
         if (!empty($report_filters) && is_array($report_filters)) {
             foreach ($report_filters as $filter => $val) {
-                if ($filter === 'php_report_'.$this->get_report_shortname().'/'.'userid') {
+                if ($filter === 'php_report_'.$this->get_report_shortname().'/'.'filterautoc') {
                     $chosen_userid = $val;
                 }
             }
@@ -241,23 +250,24 @@ class individual_course_progress_report extends table_report {
      */
     function get_filters($init_data = true) {
         global $CFG, $USER;
+        require_once($CFG->dirroot.'/elis/program/accesslib.php');
 
         $filters = array();
 
-        // ELIS-5807 - Add the autocomplete user search filter
         $autocomplete_opts = array(
             'report' => $this->get_report_shortname(),
-            'table' => 'crlm_user',
-            'popup_title' => 'Select a User',
+            'ui' => 'inline',
+            'contextlevel' => CONTEXT_ELIS_USER,
+            'instance_fields' => array(
+                'idnumber' => get_string('filter_autocomplete_idnumber', $this->lang_file),
+                'firstname' => get_string('filter_autocomplete_firstname', $this->lang_file),
+                'lastname' => get_string('filter_autocomplete_lastname', $this->lang_file),
+                'username' => get_string('filter_autocomplete_username', $this->lang_file)
+            ),
+            'custom_fields' => '*',
             'label_template' => '[[firstname]] [[lastname]]',
-            'search_fields' => array('username', 'firstname', 'lastname', 'idnumber'),
-            'selection_enabled' => false,
-            'restriction_sql' => '',
-            'help' => array(
-                'individual_user_report',
-                get_string('displayname', $this->lang_file),
-                'rlreport_individual_user'
-            )
+            'configurable' => true,
+            'required' => true
         );
 
         $permissions_filter = $this->get_user_permissions_filter('id', false);
@@ -265,13 +275,22 @@ class individual_course_progress_report extends table_report {
         $autocomplete_opts['restriction_sql'] = $permissions_filter;
 
         $last_user = $this->get_chosen_userid();
-        if (empty($last_user)) {
-            $cm_user_id = cm_get_crlmuserid($USER->id);
-            $autocomplete_opts ['defaults'] = array('label' => $USER->firstname.' '.$USER->lastname, 'id' => $cm_user_id);
+        $cm_user_id = empty($last_user) ? cm_get_crlmuserid($USER->id) : $last_user;
+        if ($cm_user_id && ($cmuser = new user($cm_user_id))) {
+            $cmuser->load();
+            $autocomplete_opts['defaults'] = array(
+                    'label' => fullname($cmuser->to_object()),
+                    'id' => $cm_user_id
+                );
         }
 
-        $filters[] = new generalized_filter_entry('userid', 'crlmuser', 'id', get_string('filter_user', $this->lang_file),
-                                                  false, 'autocomplete', $autocomplete_opts);
+        $filters[] = new generalized_filter_entry(
+                'filterautoc', 'crlmuser', 'id',
+                get_string('fld_fullname','elis_core'),
+                false,
+                'autocomplete_eliswithcustomfields',
+                $autocomplete_opts
+        );
 
         $field_list = array(
             'block_instance'   => $this->id,  // Add block id to field list array
@@ -588,7 +607,8 @@ class individual_course_progress_report extends table_report {
      * @return  array List of objects containing grouping id, field names, display labels and sort order
      */
      function get_grouping_fields() {
-         return array(new table_report_grouping('enrol_status',
+         return array(new table_report_grouping('user', 'crlmuser.id', '', 'ASC', array(), 'above', '1'),
+                      new table_report_grouping('enrol_status',
                               'enrol.completestatusid != 0',
                               get_string('grouping_progress', $this->lang_file) .': ',
                               'ASC')
@@ -607,15 +627,16 @@ class individual_course_progress_report extends table_report {
         global $CFG, $USER;
 
         $params = array();
+
+        $permissions_filter = 'TRUE';
         $cm_user_id = cm_get_crlmuserid($USER->id);
         $filter_array = php_report_filtering_get_active_filter_values(
-                            $this->get_report_shortname(), 'userid',
+                            $this->get_report_shortname(), 'filterautoc',
                             $this->filter);
         $filter_user_id = (isset($filter_array[0]['value']))
                           ? $filter_array[0]['value']
                           : -1; // ELIS-4699: so not == to invalid cm/pm userid
 
-        $permissions_filter = 'TRUE';
 
         // ELIS-3993 -- Do not display any results if no user ID was supplied by the filter
         if ($filter_user_id == -1) {
@@ -670,7 +691,7 @@ class individual_course_progress_report extends table_report {
                        cls.endtimehour AS endtimehour,
                        cls.endtimeminute AS endtimeminute,
                        cls.id AS classid,
-                       crlmuser.id AS userid
+                       crlmuser.id AS userid, crlmuser.firstname, crlmuser.lastname
                  FROM {". pmclass::TABLE .'} cls
                  JOIN {'. student::TABLE .'} enrol
                    ON enrol.classid = cls.id

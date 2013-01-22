@@ -21,7 +21,12 @@ $string['course_field_title'] = 'Custom Course Fields';
 $string['customfields'] = 'Custom fields.';
 $string['display_order'] = 'Display Order';
 $string['displayname'] = 'Individual Course Progress Report';
+$string['filter_autocomplete_idnumber'] = 'IDNumber';
+$string['filter_autocomplete_firstname'] = 'First Name';
+$string['filter_autocomplete_lastname'] = 'Last Name';
+$string['filter_autocomplete_username'] = 'Username';
 $string['filter_user'] = 'User';
+$string['filter_user_match'] = 'User Profile';
 $string['grouping_course_complete'] = 'Courses Completed';
 $string['grouping_course_in_progress'] = 'Courses in Progress';
 $string['grouping_progress'] = 'Progress';
@@ -38,6 +43,37 @@ link and then click on the name of the custom course field you would like to add
 <p>Use the reordering icons
 to reorder.</p>
 <p>Use the delete icon to remove a custom course field.</p>';
+
+$string['individual_course_progress_city'] = 'City';
+$string['individual_course_progress_city_help'] = '<p>This field represents the city of users to be included in this report.</p>';
+
+$string['individual_course_progress_country'] = 'Country';
+$string['individual_course_progress_country_help'] = '<p>This field represents the country of users to be included in this report.</p>';
+
+$string['individual_course_progress_email'] = 'Email';
+$string['individual_course_progress_email_help'] = '<p>This field represents the email address of users to be included in this report.</p>';
+
+$string['individual_course_progress_firstname'] = 'First name';
+$string['individual_course_progress_firstname_help'] = '<p>This field represents the firstname of users to be included in this report.</p>';
+
+$string['individual_course_progress_fullname'] = 'Full name';
+$string['individual_course_progress_fullname_help'] = '<p>This field represents the full name of users to be included in this report, in "Firstname Lastname" format.</p>';
+
+$string['individual_course_progress_idnumber'] = 'ID number';
+$string['individual_course_progress_idnumber_help'] = '<p>This field represents the ID number of users to be included in this report.</p>';
+
+$string['individual_course_progress_inactive'] = 'Inactive';
+$string['individual_course_progress_inactive_help'] = '<p>Select "No" if you want the report to show only active users, "Yes" if you want the report to show only inactive users, and, select "any value" if you want the report to show both ative & inactive users.</p>';
+
+$string['individual_course_progress_language'] = 'Language';
+$string['individual_course_progress_language_help'] = '<p>This field represents the primary language of users to be included in this report.</p>';
+
+$string['individual_course_progress_lastname'] = 'Last name';
+$string['individual_course_progress_lastname_help'] = '<p>This field represents the lastname of users to be included in this report.</p>';
+
+$string['individual_course_progress_username'] = 'Username';
+$string['individual_course_progress_username_help'] = '<p>This field represents the username of users to be included in this report.</p>';
+
 $string['individual_course_progress_user'] = 'select User';
 $string['individual_course_progress_user_help'] = '<p align="center"><b>Individual Course Progress Report Help</b></p>
 
